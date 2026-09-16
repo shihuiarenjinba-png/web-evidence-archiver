@@ -1,0 +1,12 @@
+{
+  "allow_hosts": ["example.com", "www.example.com"],
+  "urls": [
+    "https://example.com/"
+  ],
+  "output_dir": "C:/WebEvidence",
+  "timeout_seconds": 30,
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  }
+}
