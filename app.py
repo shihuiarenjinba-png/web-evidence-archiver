@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from archiver import WebEvidenceArchiver
+from archiver import WebEvidenceArchiver, browser_self_test
 
 
 class WebChangeEvidenceApp(tk.Tk):
@@ -68,5 +69,12 @@ class WebChangeEvidenceApp(tk.Tk):
         messagebox.showinfo("完了", f"{summary}\n\n{output}")
 
 
-if __name__ == "__main__":
+def main() -> None:
+    if "--self-test" in sys.argv:
+        print(json.dumps(browser_self_test(), ensure_ascii=False, indent=2))
+        return
     WebChangeEvidenceApp().mainloop()
+
+
+if __name__ == "__main__":
+    main()
