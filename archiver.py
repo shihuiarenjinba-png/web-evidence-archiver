@@ -4,12 +4,52 @@ import argparse
 import difflib
 import hashlib
 import json
+import os
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
 from playwright.sync_api import Request, Route, sync_playwright
+
+
+def runtime_base_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def configure_playwright_browser_path() -> Path | None:
+    """Use a bundled Playwright browser folder when present.
+
+    Distribution builds place browser binaries in <app>/browsers. Development
+    environments continue to use Playwright's normal browser lookup.
+    """
+    bundled = runtime_base_dir() / "browsers"
+    if bundled.is_dir():
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(bundled)
+        return bundled
+    return None
+
+
+def browser_self_test() -> dict:
+    bundled = configure_playwright_browser_path()
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page.set_content("<html><body><h1>self-test</h1></body></html>")
+            text = page.locator("h1").inner_text()
+            if text != "self-test":
+                raise RuntimeError("Chromium self-test page did not render as expected.")
+        finally:
+            browser.close()
+    return {
+        "status": "pass",
+        "bundled_browser_path": str(bundled) if bundled else None,
+        "runtime_base": str(runtime_base_dir()),
+    }
 
 
 def sha256_file(path: Path) -> str:
@@ -30,6 +70,8 @@ def validate_url(url: str, allow_hosts: list[str]) -> None:
         raise ValueError("HTTPS URLのみ許可されています。")
     if not parsed.hostname:
         raise ValueError("URLにホスト名がありません。")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("URL内のユーザー名/パスワード指定は許可されていません。")
     allowed = {host.casefold().strip() for host in allow_hosts if host.strip()}
     if not allowed:
         raise ValueError("allow_hostsを1件以上指定してください。")
@@ -81,8 +123,12 @@ def load_config(path: str | Path) -> dict:
     timeout = int(config.get("timeout_seconds", 30))
     if timeout < 1 or timeout > 120:
         raise ValueError("timeout_secondsは1〜120秒で指定してください。")
+    settle = int(config.get("settle_milliseconds", 750))
+    if settle < 0 or settle > 15000:
+        raise ValueError("settle_millisecondsは0〜15000で指定してください。")
     config["targets"] = targets
     config["max_diff_lines"] = max(50, min(int(config.get("max_diff_lines", 1500)), 10000))
+    config["settle_milliseconds"] = settle
     return config
 
 
@@ -240,6 +286,7 @@ class WebEvidenceArchiver:
         route.continue_()
 
     def capture_all(self, *, compare_previous: bool = True) -> Path:
+        configure_playwright_browser_path()
         run_dir = _unique_run_dir(self.output_dir)
         manifest = {
             "created_at": datetime.now().astimezone().isoformat(),
@@ -323,13 +370,19 @@ class WebEvidenceArchiver:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Web Change Evidence Monitor")
-    parser.add_argument("config")
+    parser.add_argument("config", nargs="?")
+    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--no-compare", action="store_true")
     parser.add_argument("--compare", nargs=2, metavar=("PREVIOUS_RUN", "CURRENT_RUN"))
     args = parser.parse_args()
+    if args.self_test:
+        print(json.dumps(browser_self_test(), ensure_ascii=False, indent=2))
+        return
     if args.compare:
         print(json.dumps(compare_runs(args.compare[0], args.compare[1]), ensure_ascii=False, indent=2))
         return
+    if not args.config:
+        parser.error("config is required unless --self-test or --compare is used")
     result = WebEvidenceArchiver(args.config).capture_all(compare_previous=not args.no_compare)
     print(result)
 
