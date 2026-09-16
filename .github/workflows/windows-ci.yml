@@ -1,0 +1,56 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main, product-rework-20260917]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Install bundled Chromium
+        shell: pwsh
+        run: |
+          $env:PLAYWRIGHT_BROWSERS_PATH = "$env:GITHUB_WORKSPACE\pw-browsers"
+          python -m playwright install chromium
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Python browser smoke test
+        shell: pwsh
+        run: |
+          $env:PLAYWRIGHT_BROWSERS_PATH = "$env:GITHUB_WORKSPACE\pw-browsers"
+          python archiver.py --self-test
+      - name: Compile check
+        run: python -m compileall -q .
+      - name: Build Windows portable folder
+        run: pyinstaller --noconfirm --clean --onedir --windowed --collect-all playwright --name WebChangeEvidence app.py
+      - name: Copy Chromium into portable folder
+        shell: pwsh
+        run: Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\pw-browsers" "dist\WebChangeEvidence\browsers"
+      - name: Self-test packaged executable
+        shell: pwsh
+        run: .\dist\WebChangeEvidence\WebChangeEvidence.exe --self-test
+      - name: Create checksums and zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\WebChangeEvidence\* -DestinationPath dist\WebChangeEvidence-windows.zip -Force
+          $hash = (Get-FileHash dist\WebChangeEvidence-windows.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  WebChangeEvidence-windows.zip" | Out-File -Encoding ascii dist\SHA256SUMS.txt
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebChangeEvidence-windows
+          path: |
+            dist/WebChangeEvidence-windows.zip
+            dist/SHA256SUMS.txt
