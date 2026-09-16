@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import re
@@ -19,6 +20,10 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def validate_url(url: str, allow_hosts: list[str]) -> None:
     parsed = urlparse(url)
     if parsed.scheme.lower() != "https":
@@ -32,10 +37,8 @@ def validate_url(url: str, allow_hosts: list[str]) -> None:
         raise ValueError(f"allow_hosts外のホストです: {parsed.hostname}")
 
 
-def _safe_name(url: str) -> str:
-    parsed = urlparse(url)
-    raw = f"{parsed.hostname or 'page'}_{parsed.path.strip('/') or 'home'}"
-    name = re.sub(r"[^A-Za-z0-9._-]+", "_", raw).strip("._")
+def _safe_name(text: str) -> str:
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("._")
     return (name or "page")[:90]
 
 
@@ -51,25 +54,173 @@ def _unique_run_dir(parent: Path) -> Path:
     return candidate
 
 
+def _normalize_target(item: object) -> dict:
+    if isinstance(item, str):
+        return {"url": item.strip(), "name": "", "selector": "", "ignore_text_regexes": []}
+    if isinstance(item, dict):
+        return {
+            "url": str(item.get("url", "")).strip(),
+            "name": str(item.get("name", "")).strip(),
+            "selector": str(item.get("selector", "")).strip(),
+            "ignore_text_regexes": [str(v) for v in item.get("ignore_text_regexes", [])],
+        }
+    raise ValueError("urlsはURL文字列または設定objectで指定してください。")
+
+
 def load_config(path: str | Path) -> dict:
     config = json.loads(Path(path).expanduser().resolve().read_text(encoding="utf-8"))
     allow_hosts = list(config.get("allow_hosts", []))
-    urls = [str(url).strip() for url in config.get("urls", []) if str(url).strip()]
-    if not urls:
+    targets = [_normalize_target(item) for item in config.get("urls", [])]
+    targets = [t for t in targets if t["url"]]
+    if not targets:
         raise ValueError("urlsを1件以上指定してください。")
-    for url in urls:
-        validate_url(url, allow_hosts)
+    for target in targets:
+        validate_url(target["url"], allow_hosts)
+        for pattern in target["ignore_text_regexes"]:
+            re.compile(pattern)
     timeout = int(config.get("timeout_seconds", 30))
     if timeout < 1 or timeout > 120:
         raise ValueError("timeout_secondsは1〜120秒で指定してください。")
+    config["targets"] = targets
+    config["max_diff_lines"] = max(50, min(int(config.get("max_diff_lines", 1500)), 10000))
     return config
+
+
+def normalize_visible_text(text: str, ignore_regexes: list[str]) -> str:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    for pattern in ignore_regexes:
+        normalized = re.sub(pattern, "<IGNORED>", normalized, flags=re.MULTILINE)
+    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in normalized.splitlines()]
+    return "\n".join(line for line in lines if line)
+
+
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _capture_map(run_dir: Path) -> dict[str, dict]:
+    manifest_path = run_dir / "manifest.json"
+    if not manifest_path.exists():
+        return {}
+    manifest = _read_json(manifest_path)
+    return {str(item.get("original_url", "")): item for item in manifest.get("captures", []) if item.get("original_url")}
+
+
+def _latest_previous_run(output_dir: Path, current: Path) -> Path | None:
+    candidates = []
+    for path in output_dir.glob("web_evidence_*"):
+        if path == current or not path.is_dir() or not (path / "manifest.json").exists():
+            continue
+        candidates.append(path)
+    return max(candidates, key=lambda p: p.stat().st_mtime) if candidates else None
+
+
+def compare_runs(previous_dir: str | Path, current_dir: str | Path, *, max_diff_lines: int = 1500) -> dict:
+    previous = Path(previous_dir).resolve()
+    current = Path(current_dir).resolve()
+    before_map = _capture_map(previous)
+    after_map = _capture_map(current)
+    rows = []
+
+    for url in sorted(set(before_map) | set(after_map)):
+        before = before_map.get(url)
+        after = after_map.get(url)
+        if before is None:
+            rows.append({"url": url, "status": "added_target", "changed": True})
+            continue
+        if after is None:
+            rows.append({"url": url, "status": "removed_target", "changed": True})
+            continue
+
+        before_folder = previous / before["folder"]
+        after_folder = current / after["folder"]
+        before_text_path = before_folder / "normalized_text.txt"
+        after_text_path = after_folder / "normalized_text.txt"
+        before_text = before_text_path.read_text(encoding="utf-8", errors="replace") if before_text_path.exists() else ""
+        after_text = after_text_path.read_text(encoding="utf-8", errors="replace") if after_text_path.exists() else ""
+
+        before_lines = before_text.splitlines()
+        after_lines = after_text.splitlines()
+        diff_lines = list(difflib.unified_diff(before_lines, after_lines, fromfile="before", tofile="after", lineterm=""))
+        truncated = len(diff_lines) > max_diff_lines
+        kept_diff = diff_lines[:max_diff_lines]
+        added_lines = sum(1 for line in diff_lines if line.startswith("+") and not line.startswith("+++"))
+        removed_lines = sum(1 for line in diff_lines if line.startswith("-") and not line.startswith("---"))
+
+        before_files = before.get("files", {})
+        after_files = after.get("files", {})
+        text_changed = before_files.get("normalized_text", {}).get("sha256") != after_files.get("normalized_text", {}).get("sha256")
+        html_changed = before_files.get("html", {}).get("sha256") != after_files.get("html", {}).get("sha256")
+        screenshot_changed = before_files.get("screenshot", {}).get("sha256") != after_files.get("screenshot", {}).get("sha256")
+
+        if text_changed:
+            status = "content_changed"
+        elif screenshot_changed:
+            status = "render_changed"
+        elif html_changed:
+            status = "html_only_changed"
+        else:
+            status = "unchanged"
+
+        diff_name = _safe_name(after.get("target_name") or url) + ".diff.txt"
+        diff_path = current / "diffs" / diff_name
+        if text_changed:
+            diff_path.parent.mkdir(exist_ok=True)
+            diff_path.write_text("\n".join(kept_diff) + ("\n... DIFF TRUNCATED ...\n" if truncated else "\n"), encoding="utf-8")
+
+        rows.append({
+            "url": url,
+            "target_name": after.get("target_name", ""),
+            "status": status,
+            "changed": status != "unchanged",
+            "text_changed": text_changed,
+            "html_changed": html_changed,
+            "screenshot_changed": screenshot_changed,
+            "added_text_lines": added_lines,
+            "removed_text_lines": removed_lines,
+            "diff_file": str(diff_path.relative_to(current)) if text_changed else None,
+            "diff_truncated": truncated,
+            "before_capture": str((previous / before["folder"]).resolve()),
+            "after_capture": str((current / after["folder"]).resolve()),
+        })
+
+    report = {
+        "compared_at": datetime.now().astimezone().isoformat(),
+        "previous_run": str(previous),
+        "current_run": str(current),
+        "changed_targets": sum(bool(row.get("changed")) for row in rows),
+        "total_targets": len(rows),
+        "targets": rows,
+        "notice": "Differences are technical evidence snapshots, not a guarantee of legal evidentiary status or semantic importance.",
+    }
+    (current / "change_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    _write_markdown_change_report(current / "change_report.md", report)
+    return report
+
+
+def _write_markdown_change_report(path: Path, report: dict) -> None:
+    lines = [
+        "# Web Change Evidence Report",
+        "",
+        f"Compared: `{report['previous_run']}` → `{report['current_run']}`",
+        f"Changed targets: **{report['changed_targets']} / {report['total_targets']}**",
+        "",
+        "| Target | Status | Text +/- | Screenshot | HTML |",
+        "|---|---|---:|---|---|",
+    ]
+    for item in report["targets"]:
+        label = item.get("target_name") or item.get("url")
+        delta = f"+{item.get('added_text_lines', 0)} / -{item.get('removed_text_lines', 0)}"
+        lines.append(f"| {label} | {item.get('status')} | {delta} | {item.get('screenshot_changed', '')} | {item.get('html_changed', '')} |")
+    lines.extend(["", "> 本レポートは技術的な取得・差分記録であり、法的証拠能力や変更の重要性を保証するものではありません。", ""])
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 class WebEvidenceArchiver:
     def __init__(self, config_path: str | Path):
         self.config = load_config(config_path)
         self.allow_hosts = list(self.config["allow_hosts"])
-        self.urls = list(self.config["urls"])
+        self.targets = list(self.config["targets"])
         self.output_dir = Path(self.config.get("output_dir", "web_evidence")).expanduser().resolve()
         self.timeout_ms = int(self.config.get("timeout_seconds", 30)) * 1000
         self.viewport = self.config.get("viewport", {"width": 1440, "height": 1000})
@@ -88,7 +239,7 @@ class WebEvidenceArchiver:
             return
         route.continue_()
 
-    def capture_all(self) -> Path:
+    def capture_all(self, *, compare_previous: bool = True) -> Path:
         run_dir = _unique_run_dir(self.output_dir)
         manifest = {
             "created_at": datetime.now().astimezone().isoformat(),
@@ -98,73 +249,88 @@ class WebEvidenceArchiver:
 
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
-            context = browser.new_context(
-                viewport={
-                    "width": int(self.viewport.get("width", 1440)),
-                    "height": int(self.viewport.get("height", 1000)),
-                }
-            )
+            context = browser.new_context(viewport={"width": int(self.viewport.get("width", 1440)), "height": int(self.viewport.get("height", 1000))})
             page = context.new_page()
             page.route("**/*", self._route_guard)
-
             try:
-                for index, url in enumerate(self.urls, start=1):
-                    capture = self._capture_one(page, run_dir, index, url)
-                    manifest["captures"].append(capture)
+                for index, target in enumerate(self.targets, start=1):
+                    manifest["captures"].append(self._capture_one(page, run_dir, index, target))
             finally:
                 context.close()
                 browser.close()
 
-        manifest_path = run_dir / "manifest.json"
-        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        (run_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        if compare_previous:
+            previous = _latest_previous_run(self.output_dir, run_dir)
+            if previous is not None:
+                compare_runs(previous, run_dir, max_diff_lines=int(self.config["max_diff_lines"]))
         return run_dir
 
-    def _capture_one(self, page, run_dir: Path, index: int, url: str) -> dict:
+    def _capture_one(self, page, run_dir: Path, index: int, target: dict) -> dict:
+        url = target["url"]
         validate_url(url, self.allow_hosts)
-        name = f"{index:03d}_{_safe_name(url)}"
-        page_dir = run_dir / name
+        parsed = urlparse(url)
+        label = target.get("name") or f"{parsed.hostname}_{parsed.path.strip('/') or 'home'}"
+        folder_name = f"{index:03d}_{_safe_name(label)}"
+        page_dir = run_dir / folder_name
         page_dir.mkdir()
 
         response = page.goto(url, wait_until="domcontentloaded", timeout=self.timeout_ms)
-        page.wait_for_timeout(750)
+        page.wait_for_timeout(int(self.config.get("settle_milliseconds", 750)))
         final_url = page.url
         validate_url(final_url, self.allow_hosts)
 
         html_path = page_dir / "page.html"
         screenshot_path = page_dir / "screenshot.png"
         pdf_path = page_dir / "page.pdf"
+        text_path = page_dir / "visible_text.txt"
+        normalized_path = page_dir / "normalized_text.txt"
 
         html_path.write_text(page.content(), encoding="utf-8")
         page.screenshot(path=str(screenshot_path), full_page=True)
         page.pdf(path=str(pdf_path), format="A4", print_background=True)
 
-        title = page.title()
-        captured_at = datetime.now().astimezone().isoformat()
-        status = response.status if response is not None else None
+        selector = target.get("selector", "")
+        try:
+            visible_text = page.locator(selector).inner_text(timeout=3000) if selector else page.locator("body").inner_text(timeout=3000)
+        except Exception:
+            visible_text = page.locator("body").inner_text(timeout=3000)
+        normalized_text = normalize_visible_text(visible_text, target.get("ignore_text_regexes", []))
+        text_path.write_text(visible_text, encoding="utf-8")
+        normalized_path.write_text(normalized_text, encoding="utf-8")
 
         metadata = {
+            "folder": folder_name,
+            "target_name": target.get("name", ""),
+            "selector": selector,
+            "ignore_text_regexes": target.get("ignore_text_regexes", []),
             "original_url": url,
             "final_url": final_url,
-            "title": title,
-            "http_status": status,
-            "captured_at": captured_at,
+            "title": page.title(),
+            "http_status": response.status if response is not None else None,
+            "captured_at": datetime.now().astimezone().isoformat(),
             "files": {
                 "html": {"path": "page.html", "sha256": sha256_file(html_path)},
                 "screenshot": {"path": "screenshot.png", "sha256": sha256_file(screenshot_path)},
                 "pdf": {"path": "page.pdf", "sha256": sha256_file(pdf_path)},
+                "visible_text": {"path": "visible_text.txt", "sha256": sha256_file(text_path)},
+                "normalized_text": {"path": "normalized_text.txt", "sha256": sha256_file(normalized_path)},
             },
         }
-        (page_dir / "metadata.json").write_text(
-            json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        return {"folder": name, **metadata}
+        (page_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        return metadata
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Web Evidence Archiver")
+    parser = argparse.ArgumentParser(description="Web Change Evidence Monitor")
     parser.add_argument("config")
+    parser.add_argument("--no-compare", action="store_true")
+    parser.add_argument("--compare", nargs=2, metavar=("PREVIOUS_RUN", "CURRENT_RUN"))
     args = parser.parse_args()
-    result = WebEvidenceArchiver(args.config).capture_all()
+    if args.compare:
+        print(json.dumps(compare_runs(args.compare[0], args.compare[1]), ensure_ascii=False, indent=2))
+        return
+    result = WebEvidenceArchiver(args.config).capture_all(compare_previous=not args.no_compare)
     print(result)
 
 
