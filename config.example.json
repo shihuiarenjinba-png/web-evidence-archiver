@@ -1,10 +1,20 @@
 {
   "allow_hosts": ["example.com", "www.example.com"],
   "urls": [
-    "https://example.com/"
+    {
+      "name": "Pricing",
+      "url": "https://example.com/pricing",
+      "selector": "body",
+      "ignore_text_regexes": [
+        "Last updated:.*$",
+        "\\b\\d{1,2}:\\d{2}:\\d{2}\\b"
+      ]
+    }
   ],
   "output_dir": "C:/WebEvidence",
   "timeout_seconds": 30,
+  "settle_milliseconds": 750,
+  "max_diff_lines": 1500,
   "viewport": {
     "width": 1440,
     "height": 1000
