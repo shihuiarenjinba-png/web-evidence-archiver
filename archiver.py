@@ -21,11 +21,6 @@ def runtime_base_dir() -> Path:
 
 
 def configure_playwright_browser_path() -> Path | None:
-    """Use a bundled Playwright browser folder when present.
-
-    Distribution builds place browser binaries in <app>/browsers. Development
-    environments continue to use Playwright's normal browser lookup.
-    """
     bundled = runtime_base_dir() / "browsers"
     if bundled.is_dir():
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(bundled)
@@ -40,15 +35,14 @@ def browser_self_test() -> dict:
         try:
             page = browser.new_page()
             page.set_content("<html><body><h1>self-test</h1></body></html>")
-            text = page.locator("h1").inner_text()
-            if text != "self-test":
+            if page.locator("h1").inner_text() != "self-test":
                 raise RuntimeError("Chromium self-test page did not render as expected.")
         finally:
             browser.close()
     return {
         "status": "pass",
-        "bundled_browser_path": str(bundled) if bundled else None,
-        "runtime_base": str(runtime_base_dir()),
+        "bundled_browser": bool(bundled),
+        "browser_folder_name": bundled.name if bundled else None,
     }
 
 
@@ -161,6 +155,77 @@ def _latest_previous_run(output_dir: Path, current: Path) -> Path | None:
     return max(candidates, key=lambda p: p.stat().st_mtime) if candidates else None
 
 
+def _write_evidence_chain(current: Path, previous: Path | None) -> dict:
+    manifest_path = current / "manifest.json"
+    if not manifest_path.exists():
+        raise ValueError("Current run has no manifest.json")
+    previous_manifest_sha = None
+    previous_entry_sha = None
+    previous_run_name = None
+    if previous is not None:
+        prev_manifest = previous / "manifest.json"
+        if prev_manifest.exists():
+            previous_manifest_sha = sha256_file(prev_manifest)
+            previous_run_name = previous.name
+        prev_chain = previous / "evidence_chain.json"
+        if prev_chain.exists():
+            try:
+                previous_entry_sha = _read_json(prev_chain).get("entry_sha256")
+            except Exception:
+                previous_entry_sha = None
+
+    payload = {
+        "format_version": 1,
+        "run_name": current.name,
+        "created_at": datetime.now().astimezone().isoformat(),
+        "manifest_sha256": sha256_file(manifest_path),
+        "previous_run_name": previous_run_name,
+        "previous_manifest_sha256": previous_manifest_sha,
+        "previous_entry_sha256": previous_entry_sha,
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    payload["entry_sha256"] = sha256_text(canonical)
+    (current / "evidence_chain.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def verify_run_integrity(run_dir: str | Path) -> dict:
+    run = Path(run_dir).expanduser().resolve()
+    errors: list[str] = []
+    checked = 0
+    manifest_path = run / "manifest.json"
+    if not manifest_path.exists():
+        return {"status": "fail", "checked": 0, "errors": ["missing:manifest.json"]}
+    manifest = _read_json(manifest_path)
+    for capture in manifest.get("captures", []):
+        folder = run / str(capture.get("folder", ""))
+        for label, item in (capture.get("files") or {}).items():
+            rel = item.get("path")
+            expected = item.get("sha256")
+            if not rel or not expected:
+                errors.append(f"invalid_manifest:{capture.get('folder')}:{label}")
+                continue
+            path = folder / rel
+            if not path.exists():
+                errors.append(f"missing:{capture.get('folder')}/{rel}")
+                continue
+            checked += 1
+            if sha256_file(path) != expected:
+                errors.append(f"hash_mismatch:{capture.get('folder')}/{rel}")
+
+    chain_path = run / "evidence_chain.json"
+    if chain_path.exists():
+        chain = _read_json(chain_path)
+        if chain.get("manifest_sha256") != sha256_file(manifest_path):
+            errors.append("chain_manifest_hash_mismatch")
+        entry_hash = chain.get("entry_sha256")
+        base = {k: v for k, v in chain.items() if k != "entry_sha256"}
+        canonical = json.dumps(base, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        if entry_hash != sha256_text(canonical):
+            errors.append("chain_entry_hash_mismatch")
+    return {"status": "pass" if not errors else "fail", "checked": checked, "errors": errors}
+
+
 def compare_runs(previous_dir: str | Path, current_dir: str | Path, *, max_diff_lines: int = 1500) -> dict:
     previous = Path(previous_dir).resolve()
     current = Path(current_dir).resolve()
@@ -185,9 +250,7 @@ def compare_runs(previous_dir: str | Path, current_dir: str | Path, *, max_diff_
         before_text = before_text_path.read_text(encoding="utf-8", errors="replace") if before_text_path.exists() else ""
         after_text = after_text_path.read_text(encoding="utf-8", errors="replace") if after_text_path.exists() else ""
 
-        before_lines = before_text.splitlines()
-        after_lines = after_text.splitlines()
-        diff_lines = list(difflib.unified_diff(before_lines, after_lines, fromfile="before", tofile="after", lineterm=""))
+        diff_lines = list(difflib.unified_diff(before_text.splitlines(), after_text.splitlines(), fromfile="before", tofile="after", lineterm=""))
         truncated = len(diff_lines) > max_diff_lines
         kept_diff = diff_lines[:max_diff_lines]
         added_lines = sum(1 for line in diff_lines if line.startswith("+") and not line.startswith("+++"))
@@ -226,14 +289,14 @@ def compare_runs(previous_dir: str | Path, current_dir: str | Path, *, max_diff_
             "removed_text_lines": removed_lines,
             "diff_file": str(diff_path.relative_to(current)) if text_changed else None,
             "diff_truncated": truncated,
-            "before_capture": str((previous / before["folder"]).resolve()),
-            "after_capture": str((current / after["folder"]).resolve()),
+            "before_capture": before["folder"],
+            "after_capture": after["folder"],
         })
 
     report = {
         "compared_at": datetime.now().astimezone().isoformat(),
-        "previous_run": str(previous),
-        "current_run": str(current),
+        "previous_run": previous.name,
+        "current_run": current.name,
         "changed_targets": sum(bool(row.get("changed")) for row in rows),
         "total_targets": len(rows),
         "targets": rows,
@@ -288,29 +351,43 @@ class WebEvidenceArchiver:
     def capture_all(self, *, compare_previous: bool = True) -> Path:
         configure_playwright_browser_path()
         run_dir = _unique_run_dir(self.output_dir)
+        previous = _latest_previous_run(self.output_dir, run_dir)
         manifest = {
+            "format_version": 2,
             "created_at": datetime.now().astimezone().isoformat(),
             "allow_hosts": self.allow_hosts,
             "captures": [],
         }
 
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
-            context = browser.new_context(viewport={"width": int(self.viewport.get("width", 1440)), "height": int(self.viewport.get("height", 1000))})
-            page = context.new_page()
-            page.route("**/*", self._route_guard)
-            try:
-                for index, target in enumerate(self.targets, start=1):
-                    manifest["captures"].append(self._capture_one(page, run_dir, index, target))
-            finally:
-                context.close()
-                browser.close()
+        try:
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True)
+                context = browser.new_context(viewport={"width": int(self.viewport.get("width", 1440)), "height": int(self.viewport.get("height", 1000))})
+                page = context.new_page()
+                page.route("**/*", self._route_guard)
+                try:
+                    for index, target in enumerate(self.targets, start=1):
+                        manifest["captures"].append(self._capture_one(page, run_dir, index, target))
+                finally:
+                    context.close()
+                    browser.close()
+        except Exception as exc:
+            (run_dir / "capture_error.json").write_text(json.dumps({
+                "failed_at": datetime.now().astimezone().isoformat(),
+                "error_type": exc.__class__.__name__,
+                "message": str(exc),
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
+            raise
 
-        (run_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-        if compare_previous:
-            previous = _latest_previous_run(self.output_dir, run_dir)
-            if previous is not None:
-                compare_runs(previous, run_dir, max_diff_lines=int(self.config["max_diff_lines"]))
+        manifest_path = run_dir / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_evidence_chain(run_dir, previous)
+        verification = verify_run_integrity(run_dir)
+        (run_dir / "verification.json").write_text(json.dumps(verification, ensure_ascii=False, indent=2), encoding="utf-8")
+        if verification["status"] != "pass":
+            raise RuntimeError(f"Evidence verification failed: {verification['errors']}")
+        if compare_previous and previous is not None:
+            compare_runs(previous, run_dir, max_diff_lines=int(self.config["max_diff_lines"]))
         return run_dir
 
     def _capture_one(self, page, run_dir: Path, index: int, target: dict) -> dict:
@@ -372,17 +449,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Web Change Evidence Monitor")
     parser.add_argument("config", nargs="?")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--verify-run")
     parser.add_argument("--no-compare", action="store_true")
     parser.add_argument("--compare", nargs=2, metavar=("PREVIOUS_RUN", "CURRENT_RUN"))
     args = parser.parse_args()
     if args.self_test:
         print(json.dumps(browser_self_test(), ensure_ascii=False, indent=2))
         return
+    if args.verify_run:
+        print(json.dumps(verify_run_integrity(args.verify_run), ensure_ascii=False, indent=2))
+        return
     if args.compare:
         print(json.dumps(compare_runs(args.compare[0], args.compare[1]), ensure_ascii=False, indent=2))
         return
     if not args.config:
-        parser.error("config is required unless --self-test or --compare is used")
+        parser.error("config is required unless --self-test, --verify-run, or --compare is used")
     result = WebEvidenceArchiver(args.config).capture_all(compare_previous=not args.no_compare)
     print(result)
 
