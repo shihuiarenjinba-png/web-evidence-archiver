@@ -41,7 +41,19 @@ jobs:
       - name: Self-test packaged executable
         shell: pwsh
         run: .\dist\WebChangeEvidence\WebChangeEvidence.exe --self-test
-      - name: Create checksums and zip
+      - name: Collect third-party licenses
+        shell: pwsh
+        run: |
+          python tools\collect_licenses.py dist\WebChangeEvidence\THIRD_PARTY_LICENSES\PYTHON
+          New-Item -ItemType Directory -Force dist\WebChangeEvidence\THIRD_PARTY_LICENSES\BROWSER | Out-Null
+          $root = (Resolve-Path "$env:GITHUB_WORKSPACE\pw-browsers").Path
+          Get-ChildItem "$env:GITHUB_WORKSPACE\pw-browsers" -Recurse -File | Where-Object { $_.Name -match '^(LICENSE|NOTICE|COPYING)(\..*)?$' } | ForEach-Object {
+            $relative = $_.FullName.Substring($root.Length).TrimStart('\')
+            $safe = ($relative -replace '[\\/:*?"<>| ]','_')
+            Copy-Item $_.FullName "dist\WebChangeEvidence\THIRD_PARTY_LICENSES\BROWSER\$safe"
+          }
+          Copy-Item CHANGELOG.md dist\WebChangeEvidence\CHANGELOG.md
+      - name: Create release candidate zip and checksum
         shell: pwsh
         run: |
           Compress-Archive -Path dist\WebChangeEvidence\* -DestinationPath dist\WebChangeEvidence-windows.zip -Force
