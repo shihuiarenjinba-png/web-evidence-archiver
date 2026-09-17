@@ -1,39 +1,57 @@
 # Web Change Evidence Monitor
 
-公開Webページをローカルへ記録し、**前回と今回で「何が変わったか」を証跡付きで比較する**Windows向け商品候補です。
+**公開Webページをローカル保存し、前回と今回の変更を「可視テキスト・画面・HTML」に分けて証跡化するWindows向け監査ツール**です。
 
-単なるスクリーンショット保存ではなく、同じURLの記録履歴から、可視テキスト・HTML・画面レンダリングの変更を分けて追跡します。
+単なるスクリーンショット保存やURL監視ではなく、**原証跡を保存したまま比較用ノイズだけを除外し、変更の種類を分離して追跡できる**ことを専門機能にしています。
 
-## 現在の機能
+> Release Candidate。出力は技術的な取得・変更記録であり、法的証拠能力・真正性・変更の重要性を保証するものではありません。
 
-- HTTPS URLのみ
-- `allow_hosts` に登録したホストだけを通信対象にする
-- 1回で複数URLを記録
-- HTML保存
-- フルページPNG保存
-- 印刷用PDF保存
-- 可視テキスト保存
-- 比較用の正規化テキスト保存
-- URL / final URL / title / HTTP status / 取得時刻を記録
-- 各成果物のSHA256をmanifestへ記録
-- 前回runを自動検出し、同一URLを比較
-- `content_changed` / `render_changed` / `html_only_changed` / `unchanged` を区別
-- 追加・削除テキスト行数を集計
-- unified diffを `diffs/*.diff.txt` として保存
-- JSON / Markdown変更レポートを生成
-- `selector` でページの特定範囲だけを比較可能
-- `ignore_text_regexes` で日時・カウンタ等の揺れを比較時だけ除外可能
+## 専門性
 
-元のHTML・PNG・PDF・可視テキストはそのまま保存し、ignoreルールは比較用テキストにだけ適用します。
+### Multi-layer capture
+1回の取得で以下を保存します。
 
-## 変更状態の意味
+- HTML
+- Full-page PNG
+- PDF
+- 可視テキスト
+- 比較用正規化テキスト
+- URL / final URL / title / HTTP status / captured_at
+- 各成果物SHA256
 
-- `content_changed`: 正規化後の可視テキストが変わった
-- `render_changed`: テキストは同じだがスクリーンショットが変わった
-- `html_only_changed`: テキストと画面は同じだがHTMLが変わった
-- `unchanged`: 上記3種のSHA256が同じ
+### Change classification
+前回記録と比較して以下を区別します。
 
-これにより、広告・装飾・DOM変更と、読める文章そのものの変更をある程度切り分けられます。
+- `content_changed`: 読めるテキストが変化
+- `render_changed`: テキストは同じだが画面表示が変化
+- `html_only_changed`: テキスト・画面は同じだがHTMLが変化
+- `unchanged`
+
+広告やDOM変化と、本文変更を完全ではないものの切り分けやすくします。
+
+### Noise control without altering evidence
+
+- `selector`: 比較対象範囲を限定
+- `ignore_text_regexes`: 日時・カウンタ等を比較時のみ除外
+
+`visible_text.txt` / HTML / PNG / PDFは加工せず原証跡として保存します。
+
+### Diff report
+
+- 追加 / 削除テキスト行数
+- unified diff
+- JSON report
+- Markdown report
+
+## Network safety
+
+- HTTPSのみ
+- URL埋め込みusername/password拒否
+- `allow_hosts`必須
+- Playwright route guardでallowlist外通信を拒否
+- ログイン回避 / CAPTCHA回避 / Access Control回避機能なし
+
+外部CDNが必要なサイトではCDN hostも明示許可する必要があります。
 
 ## 設定例
 
@@ -50,16 +68,15 @@
   ],
   "output_dir": "C:/WebEvidence",
   "timeout_seconds": 30,
+  "settle_milliseconds": 750,
   "max_diff_lines": 1500
 }
 ```
 
-外部CDN等のリソースが必要なページでは、そのホストも `allow_hosts` に明示する必要があります。
-
 ## 出力例
 
 ```text
-web_evidence_20260917_090000/
+web_evidence_YYYYMMDD_HHMMSS/
 ├─ 001_Pricing/
 │  ├─ page.html
 │  ├─ screenshot.png
@@ -68,58 +85,43 @@ web_evidence_20260917_090000/
 │  ├─ normalized_text.txt
 │  └─ metadata.json
 ├─ diffs/
-│  └─ Pricing.diff.txt
 ├─ manifest.json
 ├─ change_report.json
 └─ change_report.md
 ```
 
-初回runには比較対象がないためchange reportは作られません。
+初回取得時は比較対象がないためchange reportはありません。
 
-## セットアップ
+## Bundled browser support
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m playwright install chromium
-python app.py
-```
-
-CLI:
+`archiver.py --self-test` でChromium起動セルフテストを行えます。配布版ではアプリ隣接 `browsers/` を優先して利用する設計です。
 
 ```powershell
-python archiver.py config.example.json
-python archiver.py config.example.json --no-compare
-python archiver.py dummy.json --compare C:\WebEvidence\old_run C:\WebEvidence\new_run
+python archiver.py --self-test
 ```
 
 ## 想定用途
 
-- 自社・競合の公開料金ページ変更記録
-- 取引先の公開仕様 / FAQ / 告知ページ変更確認
-- 利用規約や公開ドキュメントの変更履歴
-- 官公庁・業界団体の公開ページ調査
-- 調査レポート作成時の「取得時点」記録
+- 公開料金ページ変更記録
+- 取引先仕様 / FAQ / 告知ページの変更確認
+- 利用規約や公開文書の変更履歴
+- 官公庁・業界団体ページの調査
+- 調査レポートの「取得時点」保存
+- 自社Web QAのBefore / After記録
 
 ## 利用上の注意
 
-- 利用者が閲覧・保存する権限を持つ公開ページ等に使用してください。
-- ログイン回避、アクセス制御回避、CAPTCHA回避などを行う機能ではありません。
-- robots.txtやサイト利用規約、著作権、データベース権等は対象サイトごとに確認してください。
-- 本ツールの出力が法的証拠として認められることは保証しません。
-- SHA256は保存後の同一性確認に役立ちますが、取得内容の真実性や法的効力を単独で保証するものではありません。
-- 動的ページではレンダリング差分が頻発するため、selector / ignoreルールの設定が重要です。
+- 閲覧・保存する権限があるページに使用してください。
+- 対象サイトの利用規約・robots.txt・著作権・データベース権等は利用者が確認してください。
+- SHA256は保存後の同一性確認に役立ちますが、取得時内容の真実性や法的効力を保証しません。
+- 動的ページはrender差分が頻発するため、selector / ignoreルール設定が重要です。
 
-## 販売前チェック
+## Test / Build
 
-- Windows 10/11実機テスト
-- Chromium同梱 / 初回セットアップ方式の確定
-- 日本語・長文ページ・SPA・遅延読み込みページの回帰テスト
-- ネットワーク失敗 / timeout / HTTP error時のレポート改善
-- 定期実行は既存 `scheduled-api-runner` / Windows Task Scheduler等と役割分離して設計
-- 大量履歴の整理 / retention設定
-- PyInstaller portable EXE
-- コード署名、配布物SHA256、AVチェック
+```powershell
+python -m unittest discover -s tests -v
+```
 
-現在は製品化候補のMVPです。販売前に実機検証を通してください。
+Windows CI / Playwright Chromium / PyInstaller build定義は `.github/workflows/windows-ci.yml` にあります。
+
+販売判定は [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) を基準にしてください。
