@@ -1,0 +1,24 @@
+{
+  "product": "Web Change Evidence Monitor",
+  "version": "0.9.0-rc1",
+  "sales_release": false,
+  "release_stage": "desktop_validation_pending",
+  "code_gates": {
+    "https_allowlist": true,
+    "multi_layer_capture": true,
+    "change_classification": true,
+    "evidence_chain": true,
+    "run_self_verification": true,
+    "absolute_paths_omitted": true,
+    "regression_tests_present": true,
+    "windows_build_workflow_present": true
+  },
+  "desktop_blockers": [
+    "Windows 10/11 bundled Chromium smoke test",
+    "real-site HTML/PNG/PDF capture test",
+    "Japanese/SPA/long-page review",
+    "SmartScreen/AV test",
+    "third-party license bundle review",
+    "final distribution SHA256"
+  ]
+}
