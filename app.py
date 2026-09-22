@@ -59,4 +59,7 @@ if __name__ == "__main__":
     if "--self-test-browser" in sys.argv:
         browser_runtime_self_test()
         raise SystemExit(0)
-    WebEvidenceArchiverApp().mainloop()
+    if len(sys.argv) == 3 and sys.argv[1] == "--acceptance-capture":
+        WebEvidenceArchiver(sys.argv[2]).capture_all()
+    else:
+        WebEvidenceArchiverApp().mainloop()

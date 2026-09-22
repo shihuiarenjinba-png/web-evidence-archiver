@@ -115,6 +115,9 @@ finally {
         Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
         $Process.WaitForExit()
     }
+    Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $Exe } | ForEach-Object {
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    }
 }
 
 $TargetExe = Join-Path $Artifacts "$ProductName-RC.exe"

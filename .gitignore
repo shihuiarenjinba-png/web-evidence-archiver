@@ -20,3 +20,5 @@ oauth*.json
 token*.json
 service-account*.json
 *.secret.json
+.acceptance-build-logs/
+.build-run-logs/
