@@ -11,6 +11,9 @@ from urllib.parse import urlparse
 from playwright.sync_api import Request, Route, sync_playwright
 
 
+DEFAULT_BROWSER_CHANNEL = "msedge"
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as fh:
@@ -51,6 +54,19 @@ def _unique_run_dir(parent: Path) -> Path:
     return candidate
 
 
+def browser_runtime_self_test(channel: str = DEFAULT_BROWSER_CHANNEL) -> None:
+    """Verify the packaged Playwright driver can launch the installed browser."""
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(channel=channel, headless=True)
+        try:
+            page = browser.new_page()
+            page.goto("data:text/html,<title>runtime-ok</title><p>ok</p>")
+            if page.title() != "runtime-ok":
+                raise RuntimeError("Browser runtime self-test did not render the expected page.")
+        finally:
+            browser.close()
+
+
 def load_config(path: str | Path) -> dict:
     config = json.loads(Path(path).expanduser().resolve().read_text(encoding="utf-8"))
     allow_hosts = list(config.get("allow_hosts", []))
@@ -62,6 +78,9 @@ def load_config(path: str | Path) -> dict:
     timeout = int(config.get("timeout_seconds", 30))
     if timeout < 1 or timeout > 120:
         raise ValueError("timeout_secondsは1〜120秒で指定してください。")
+    channel = str(config.get("browser_channel", DEFAULT_BROWSER_CHANNEL)).strip()
+    if channel != DEFAULT_BROWSER_CHANNEL:
+        raise ValueError("Windows販売版では browser_channel は msedge のみサポートします。")
     return config
 
 
@@ -73,6 +92,9 @@ class WebEvidenceArchiver:
         self.output_dir = Path(self.config.get("output_dir", "web_evidence")).expanduser().resolve()
         self.timeout_ms = int(self.config.get("timeout_seconds", 30)) * 1000
         self.viewport = self.config.get("viewport", {"width": 1440, "height": 1000})
+        self.browser_channel = str(
+            self.config.get("browser_channel", DEFAULT_BROWSER_CHANNEL)
+        ).strip()
 
     def _route_guard(self, route: Route, request: Request) -> None:
         parsed = urlparse(request.url)
@@ -93,11 +115,12 @@ class WebEvidenceArchiver:
         manifest = {
             "created_at": datetime.now().astimezone().isoformat(),
             "allow_hosts": self.allow_hosts,
+            "browser_channel": self.browser_channel,
             "captures": [],
         }
 
         with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
+            browser = pw.chromium.launch(channel=self.browser_channel, headless=True)
             context = browser.new_context(
                 viewport={
                     "width": int(self.viewport.get("width", 1440)),
