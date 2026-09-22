@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from archiver import WebEvidenceArchiver
+from archiver import WebEvidenceArchiver, browser_runtime_self_test
 
 
 class WebEvidenceArchiverApp(tk.Tk):
@@ -27,7 +28,7 @@ class WebEvidenceArchiverApp(tk.Tk):
 
         ttk.Label(
             root,
-            text="許可ホストのHTTPSページのみを保存します。HTML・PNG・PDFとSHA256を記録します。",
+            text="許可ホストのHTTPSページのみを保存します。Windows標準のMicrosoft Edgeを使用し、HTML・PNG・PDFとSHA256を記録します。",
             wraplength=700,
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(10, 0))
 
@@ -55,4 +56,7 @@ class WebEvidenceArchiverApp(tk.Tk):
 
 
 if __name__ == "__main__":
+    if "--self-test-browser" in sys.argv:
+        browser_runtime_self_test()
+        raise SystemExit(0)
     WebEvidenceArchiverApp().mainloop()
