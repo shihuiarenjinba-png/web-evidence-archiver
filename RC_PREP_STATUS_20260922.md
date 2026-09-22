@@ -47,3 +47,13 @@ steps started. The job records contain no step list and no job log URL, so these
 runs do not provide evidence of a source-test, PyInstaller, or runtime failure.
 Automatic push triggering is paused on this branch; the workflow remains
 available for manual dispatch when the Windows runner environment is available.
+
+
+## Local Windows RC evidence — 2026-09-22
+
+- Web Evidence Archiver 1.0.0: source tests, Python compile/build path, one-file EXE build, and automated startup smoke passed locally on Windows 11 with Python 3.12.10.
+- SHA-256: $sha
+- Release dependency lock, CycloneDX SBOM candidate, and installed-metadata third-party notice candidate were generated with the build.
+- Customer artifact credential filename scan: PASS.
+- Authenticode: DEFERRED until Microsoft approval (current signature state: NotSigned).
+- **Not UPLOAD-READY:** product LICENSE approval and Windows 10/11 manual UI/DPI acceptance remain open. For API products, a customer-authorized live endpoint/OAuth test is also not represented by this automated result.
