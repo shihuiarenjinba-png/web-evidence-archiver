@@ -9,3 +9,14 @@ dist/
 web_evidence/
 .DS_Store
 Thumbs.db
+
+.rc-build/
+artifacts/
+
+# Never commit test or production credentials.
+client_secret*.json
+credentials*.json
+oauth*.json
+token*.json
+service-account*.json
+*.secret.json
