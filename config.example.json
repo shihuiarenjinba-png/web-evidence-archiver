@@ -5,6 +5,7 @@
   ],
   "output_dir": "C:/WebEvidence",
   "timeout_seconds": 30,
+  "browser_channel": "msedge",
   "viewport": {
     "width": 1440,
     "height": 1000
