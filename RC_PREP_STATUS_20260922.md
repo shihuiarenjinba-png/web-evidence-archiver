@@ -38,3 +38,12 @@ No OAuth client JSON, token file, API key, or other credential may be included.
 - Authenticode is deferred.
 
 Do not label this branch or its outputs as sales-ready yet.
+
+
+## GitHub Actions execution note
+
+Push-triggered workflow runs were created, but the jobs failed before any runner
+steps started. The job records contain no step list and no job log URL, so these
+runs do not provide evidence of a source-test, PyInstaller, or runtime failure.
+Automatic push triggering is paused on this branch; the workflow remains
+available for manual dispatch when the Windows runner environment is available.
