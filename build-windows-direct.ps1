@@ -1,5 +1,6 @@
 param(
-    [string]$ProductName = "Web-Evidence-Archiver"
+    [string]$ProductName = "Web-Evidence-Archiver",
+    [string]$Version = "1.0.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -85,6 +86,11 @@ if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }
 
 $Exe = Join-Path $Dist "$ProductName.exe"
 if (-not (Test-Path $Exe)) { throw "Built executable was not found: $Exe" }
+
+Write-Host "== Release dependency evidence =="
+& $Python "$Root\release_metadata.py" --output $Artifacts --product $ProductName --version $Version
+if ($LASTEXITCODE -ne 0) { throw "Release metadata generation failed." }
+Copy-Item -LiteralPath (Join-Path $Root "LICENSE_PENDING_APPROVAL.txt") -Destination (Join-Path $Artifacts "LICENSE_PENDING_APPROVAL.txt") -Force
 
 Write-Host "== Packaged Playwright / Edge runtime self-test =="
 $SelfTest = Start-Process -FilePath $Exe -ArgumentList "--self-test-browser" -PassThru

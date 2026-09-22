@@ -1,0 +1,5 @@
+PRODUCT LICENSE PENDING APPROVAL
+
+No license is granted for this product by this file. A product-license decision
+and its final text require the owner's explicit approval. This file is separate
+from THIRD_PARTY_NOTICE.txt, which is generated from installed dependency metadata.
