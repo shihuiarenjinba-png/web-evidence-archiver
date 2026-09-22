@@ -1,9 +1,6 @@
 name: windows-direct-rc
 
 on:
-  push:
-    branches:
-      - release/windows-direct-20260922
   workflow_dispatch:
 
 permissions:
