@@ -13,6 +13,8 @@
 - 各成果物のSHA256をmanifestへ記録
 - allowlist外ホストへの通信をブロック
 - 1回の実行で複数URLを保存
+- GUIから複数URL・許可ホスト・出力先を設定
+- GUIで設定JSONを保存、またはそのまま記録を作成
 
 ## 想定用途
 
@@ -36,6 +38,8 @@ CLI:
 ```bash
 python archiver.py config.example.json
 ```
+
+通常利用ではGUIへURLを1行ずつ入力し、必要なホストを許可リストへ明示します。既存設定JSONの選択欄は上級者向けです。
 
 ## 設定例
 
