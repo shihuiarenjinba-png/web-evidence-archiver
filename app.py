@@ -204,10 +204,16 @@ class WebEvidenceArchiverApp(tk.Tk):
             messagebox.showerror("設定エラー", str(exc))
 
     def _run_form(self) -> None:
+        try:
+            config = self._form_config()
+        except ValueError as exc:
+            self.status_var.set("入力内容を確認してください。必須項目が空欄か、URLと許可ホストが一致していません。")
+            messagebox.showwarning("入力内容を確認してください", str(exc), parent=self)
+            return
         temporary = None
         try:
             with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as handle:
-                json.dump(self._form_config(), handle, ensure_ascii=False, indent=2)
+                json.dump(config, handle, ensure_ascii=False, indent=2)
                 temporary = Path(handle.name)
             output = WebEvidenceArchiver(temporary).capture_all()
         except Exception as exc:
