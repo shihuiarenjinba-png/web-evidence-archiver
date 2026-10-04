@@ -11,11 +11,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from archiver import WebEvidenceArchiver, browser_runtime_self_test, validate_url
+from archiver import WebEvidenceArchiver, browser_runtime_self_test, validate_url, load_config
 
 
 DEFAULT_OUTPUT = Path.home() / "Documents" / "Web Evidence Archiver" / "Output"
 DIAGNOSTIC_DIR = Path(os.getenv("LOCALAPPDATA", Path.home())) / "Web Evidence Archiver" / "Logs"
+EXAMPLE_URL = "https://example.com/"
+EXAMPLE_HOST = "example.com"
 
 
 def record_failure(operation: str, exc: Exception) -> str:
@@ -51,6 +53,23 @@ def build_gui_config(urls_text: str, allow_hosts_text: str, output_dir: str) -> 
     }
 
 
+def validate_application_config(path: str) -> None:
+    """Require this archiver's config structure, never arbitrary JSON files."""
+    if not path.strip():
+        raise ValueError("本アプリが保存した設定JSONを選択してください。通常は上のフォームから直接記録を作成できます。")
+    try:
+        document = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("設定JSONを読み込めません。フォームの内容から本アプリ用の設定を保存してください。") from exc
+    if not isinstance(document, dict) or not {"urls", "allow_hosts"}.issubset(document):
+        raise ValueError(
+            "選択されたJSONはWeb Evidence Archiverの設定ではありません。"
+            "保存したページのJSONや他サービスの認証JSONは使用できません。"
+            "上のフォームへ保存URLと許可ホストを入力してください。"
+        )
+    load_config(path)
+
+
 class WebEvidenceArchiverApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -79,7 +98,7 @@ class WebEvidenceArchiverApp(tk.Tk):
         )
         ttk.Label(
             root,
-            text="許可したHTTPSページをMicrosoft Edgeで開き、HTML・PNG・PDF・取得時刻・SHA256を1セットで保存します。",
+            text="入力したHTTPSページをEdgeで開き、HTML・PNG・PDF・取得日時を保存します。許可ホストはこのアプリが通信できるドメインの制限であり、サイトへのアクセス権を付与するものではありません。",
             wraplength=800,
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 12))
 
@@ -90,8 +109,8 @@ class WebEvidenceArchiverApp(tk.Tk):
         self.urls_text = tk.Text(root, height=4, wrap="none")
         self.urls_text.grid(row=3, column=1, columnspan=2, sticky="ew", pady=6)
         ttk.Label(root, text="1行に1 URL。HTTPSのみ。").grid(row=4, column=1, columnspan=2, sticky="w")
-        self._entry_row(root, 5, "許可ホスト", self.hosts_var)
-        ttk.Label(root, text="カンマ区切り。ページが使うCDN等も必要に応じて追加します。").grid(
+        self._entry_row(root, 5, "許可ホスト（ドメイン）", self.hosts_var)
+        ttk.Label(root, text="例: https://example.com/ → example.com。画像などに必要なCDNは、信頼できるホストのみカンマ区切りで追加します。").grid(
             row=6, column=1, columnspan=2, sticky="w"
         )
         self._entry_row(root, 7, "出力先", self.output_var, self._pick_output)
@@ -101,11 +120,12 @@ class WebEvidenceArchiverApp(tk.Tk):
             row=8, column=0, columnspan=3, sticky="w", pady=(10, 0)
         )
         actions.grid(row=9, column=0, columnspan=3, sticky="w", pady=(4, 8))
+        ttk.Button(actions, text="公開ページの例を入力", command=self._load_public_example).pack(side="left", padx=(0, 8))
         ttk.Button(actions, text="設定JSONを保存", command=self._save_form).pack(side="left")
         ttk.Button(actions, text="フォーム設定で記録を作成", command=self._run_form).pack(side="left", padx=8)
 
         ttk.Separator(root).grid(row=10, column=0, columnspan=3, sticky="ew", pady=8)
-        ttk.Label(root, text="既存の設定JSON（上級者向け）").grid(row=11, column=0, sticky="w", pady=6)
+        ttk.Label(root, text="本アプリで保存した設定JSON（上級者向け）").grid(row=11, column=0, sticky="w", pady=6)
         ttk.Entry(root, textvariable=self.config_var).grid(row=11, column=1, sticky="ew", pady=6)
         ttk.Button(root, text="設定JSONを選択", command=self._pick).grid(row=11, column=2, padx=(8, 0), pady=6)
 
@@ -148,8 +168,17 @@ class WebEvidenceArchiverApp(tk.Tk):
         if command:
             ttk.Button(parent, text="選択", command=command).grid(row=row, column=2, padx=(8, 0), pady=6)
 
+    def _load_public_example(self) -> None:
+        """Insert a safe public example; network access starts only on Run."""
+        self.urls_text.delete("1.0", "end")
+        self.urls_text.insert("1.0", EXAMPLE_URL)
+        self.hosts_var.set(EXAMPLE_HOST)
+        self.config_var.set("")
+        self._update_summary()
+        self.status_var.set("公開ページの例を入力しました。「フォーム設定で記録を作成」を押してください。")
+
     def _pick_output(self) -> None:
-        value = filedialog.askdirectory()
+        value = filedialog.askdirectory(parent=self, title="出力先フォルダーを選択")
         if value:
             self.output_var.set(value)
 
@@ -169,7 +198,8 @@ class WebEvidenceArchiverApp(tk.Tk):
             if not destination:
                 return
             Path(destination).write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
-            self.status_var.set(f"設定を保存しました: {destination}")
+            self.config_var.set(destination)
+            self.status_var.set(f"本アプリ用の設定JSONを保存しました: {destination}")
         except Exception as exc:
             messagebox.showerror("設定エラー", str(exc))
 
@@ -194,13 +224,27 @@ class WebEvidenceArchiverApp(tk.Tk):
         self._show_success(output)
 
     def _pick(self) -> None:
-        value = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
+        value = filedialog.askopenfilename(
+            parent=self, title="本アプリが保存した設定JSONを選択", filetypes=[("設定JSON", "*.json")]
+        )
         if value:
+            try:
+                validate_application_config(value)
+            except ValueError as exc:
+                messagebox.showwarning("設定ファイルの種類が違います", str(exc), parent=self)
+                self.status_var.set("このアプリが保存した設定JSONを選択してください。")
+                return
             self.config_var.set(value)
+            self.status_var.set(f"設定JSONを確認しました: {value}")
 
     def _run(self) -> None:
         try:
+            validate_application_config(self.config_var.get())
             output = WebEvidenceArchiver(self.config_var.get()).capture_all()
+        except ValueError as exc:
+            self.status_var.set("設定JSONを確認してください。上のフォームから直接記録することもできます。")
+            messagebox.showwarning("設定JSONを確認してください", str(exc), parent=self)
+            return
         except Exception as exc:
             diagnostic_id = record_failure("capture-config", exc)
             self.status_var.set("取得に失敗しました。設定JSON、Edge、ネットワークを確認してください。")
