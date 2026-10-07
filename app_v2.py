@@ -273,7 +273,17 @@ class WebEvidenceArchiverAppV2(tk.Tk):
             archiver = WebEvidenceArchiver(path); output = archiver.capture_urls(urls); result = archiver.last_result or {}
             self.last_output = output; self.open_button.configure(state="normal")
             state = "完了" if result.get("complete") else "一部失敗（成功とは表示しません）"
-            self.status_var.set(f"{state}: {result.get('captured')}/{result.get('requested')}件 / 失敗 {result.get('failed')}件 / 保存先 {output} / manifest {result.get('manifest')} / ブロック資源 {result.get('blocked_resources')}")
+            details = []
+            for capture in result.get("captures", []):
+                details.append(
+                    f"{capture.get('requested_url')} → {capture.get('final_url')} / "
+                    f"HTTP {capture.get('http_status')} / 生成: {', '.join(capture.get('files', [])) or 'なし'}"
+                )
+            self.status_var.set(
+                f"{state}: {result.get('captured')}/{result.get('requested')}件 / 失敗 {result.get('failed')}件"
+                f" / 保存先 {output} / manifest {result.get('manifest')} / ブロック資源 {result.get('blocked_resources')}"
+                + ("\n" + "\n".join(details) if details else "")
+            )
             messagebox.showinfo("取得結果", self.status_var.get(), parent=self)
         except Exception as exc:
             diagnostic = record_failure("capture-saved-config", exc)

@@ -42,6 +42,14 @@ def _safe_name(url: str) -> str:
     return (name or "page")[:90]
 
 
+def _display_url(url: str) -> str:
+    """Return a result-display URL without query parameters or fragments."""
+    parsed = urlparse(str(url))
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+
 def _unique_run_dir(parent: Path) -> Path:
     parent.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -190,6 +198,15 @@ class WebEvidenceArchiver:
             "output": str(run_dir),
             "manifest": str(manifest_path),
             "blocked_resources": manifest["blocked_resources"],
+            "captures": [
+                {
+                    "requested_url": _display_url(item.get("original_url", "")),
+                    "final_url": _display_url(item.get("final_url", "")),
+                    "http_status": item.get("http_status"),
+                    "files": sorted(item.get("files", {}).keys()),
+                }
+                for item in manifest["captures"]
+            ],
         }
         return run_dir
 
