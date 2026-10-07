@@ -65,7 +65,7 @@ def append_capture_note(path: str | Path, result: dict) -> Path:
     if created:
         lines.append(f"- 取得日時: {created}")
     for capture in result.get("captures", []):
-        lines.append(f"- URL: {_display_url(capture.get('original_url', ''))}")
+        lines.append(f"- URL: {capture.get('requested_url', '')}")
     lines.append(f"- 保存先: {result.get('output', '')}")
     lines.append(f"- manifest: {result.get('manifest', '')}")
     lines.append(f"- 完了状態: {'完了' if result.get('complete') else '一部失敗' }")
