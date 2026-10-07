@@ -1,7 +1,7 @@
-OWNER APPROVAL CANDIDATE — NOT EFFECTIVE — DO NOT DISTRIBUTE TO CUSTOMERS
+BOOTH OWNER APPROVAL CANDIDATE — NOT EFFECTIVE — DO NOT DISTRIBUTE TO CUSTOMERS
 
 Product: Web Evidence Archiver
-Draft revision: 2026-10-07-r2
+Draft revision: 2026-10-07-r3-BOOTH
 Sales release: NO
 
 This text is a proposed product license. It becomes effective only after the
@@ -13,17 +13,29 @@ product. Until then, no product license is granted by this file.
 Licensor: [LEGAL NAME OR ENTITY — OWNER APPROVAL REQUIRED]
 Covered product: Web Evidence Archiver
 Covered version: the version stated in the accompanying VERSION.txt
+Sales channel: BOOTH
 Effective date: [OWNER APPROVAL REQUIRED]
 
 2. LICENSE GRANT (PROPOSED)
 After lawful purchase and subject to the approved Agreement, one purchaser may
-install and use the product on up to two PCs controlled by that same purchaser.
-Use is permitted for personal purposes and for work performed by that same
-person, including internal commercial work. The license is non-exclusive and
-non-transferable.
+install and use the product personally. Use is permitted for personal purposes
+and for work performed by that same person, including internal commercial
+work. The license is non-exclusive and non-transferable.
+
+The owner must approve exactly one device-scope option before publication:
+A. use on up to two PCs controlled by that purchaser; or
+B. use on PCs managed by that purchaser, without a fixed numerical PC limit.
+
+BOOTH does not provide this product with technical PC activation. Compliance
+with the approved device scope is contractual. BOOTH download counts, download
+history, or re-downloads must not be treated as proof of the number of PCs used.
 
 Shared use by multiple people is not included. Organizations needing multiple
 users require separately approved licensing terms.
+
+Any future Lemon Squeezy edition, license key, or activation limit is outside
+this BOOTH license candidate and requires separate implementation, testing,
+product disclosure, and approved terms.
 
 3. RESTRICTIONS (PROPOSED)
 The purchaser must not redistribute, resell, sublicense, rent, lend, publish,
@@ -76,9 +88,13 @@ excluded. BOOTH-specific wording requires owner/legal review before publication.
 Legal name/entity: [REQUIRED]
 License version: [REQUIRED]
 Effective date: [REQUIRED]
-Corrective-update/support period: [REQUIRED]
+Device scope: [SELECT A OR B, THEN REMOVE THE UNUSED OPTION]
+Support period: [REQUIRED]
+Corrective-update period: [REQUIRED]
+Major-upgrade policy: [REQUIRED]
 Refund/cancellation wording reviewed: [REQUIRED]
-Liability/governing-law/termination text reviewed: [REQUIRED]
+Termination terms: [REQUIRED]
+Liability/statutory-rights/governing-law text reviewed: [REQUIRED]
 Approved by: [OWNER]
 Approval date: [DATE]
 SHA-256 of approved text: [CALCULATE AFTER APPROVAL]
