@@ -1,0 +1,9 @@
+{
+  "name": "Example.com acceptance fixture",
+  "allow_hosts": ["example.com"],
+  "urls": ["https://example.com/"],
+  "output_dir": ".acceptance-output-20261005/example-com",
+  "timeout_seconds": 30,
+  "browser_channel": "msedge",
+  "viewport": {"width": 1440, "height": 1000}
+}

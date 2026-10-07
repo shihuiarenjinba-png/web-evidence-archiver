@@ -22,3 +22,5 @@ service-account*.json
 *.secret.json
 .acceptance-build-logs/
 .build-run-logs/
+.acceptance-output-*/
+tmp/

@@ -282,4 +282,5 @@ if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--acceptance-capture":
         WebEvidenceArchiver(sys.argv[2]).capture_all()
     else:
-        WebEvidenceArchiverApp().mainloop()
+        from app_v2 import WebEvidenceArchiverAppV2
+        WebEvidenceArchiverAppV2().mainloop()

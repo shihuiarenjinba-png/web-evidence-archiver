@@ -95,6 +95,8 @@ class WebEvidenceArchiver:
         self.browser_channel = str(
             self.config.get("browser_channel", DEFAULT_BROWSER_CHANNEL)
         ).strip()
+        self.last_result: dict | None = None
+        self._blocked_hosts: dict[str, int] = {}
 
     def _route_guard(self, route: Route, request: Request) -> None:
         parsed = urlparse(request.url)
@@ -102,21 +104,36 @@ class WebEvidenceArchiver:
             route.continue_()
             return
         if parsed.scheme.lower() != "https" or not parsed.hostname:
+            self._blocked_hosts[parsed.scheme or "invalid"] = self._blocked_hosts.get(parsed.scheme or "invalid", 0) + 1
             route.abort()
             return
         allowed = {host.casefold().strip() for host in self.allow_hosts if host.strip()}
         if parsed.hostname.casefold() not in allowed:
+            host = parsed.hostname.casefold()
+            self._blocked_hosts[host] = self._blocked_hosts.get(host, 0) + 1
             route.abort()
             return
         route.continue_()
 
     def capture_all(self) -> Path:
+        return self.capture_urls(self.urls)
+
+    def capture_urls(self, urls: list[str]) -> Path:
+        """Capture an explicit subset while keeping failures visible in the manifest."""
+        selected = [str(value).strip() for value in urls if str(value).strip()]
+        if not selected:
+            raise ValueError("取得するURLを1件以上選択してください。")
+        for url in selected:
+            validate_url(url, self.allow_hosts)
         run_dir = _unique_run_dir(self.output_dir)
         manifest = {
             "created_at": datetime.now().astimezone().isoformat(),
             "allow_hosts": self.allow_hosts,
             "browser_channel": self.browser_channel,
             "captures": [],
+            "errors": [],
+            "blocked_resources": {},
+            "complete": False,
         }
 
         with sync_playwright() as pw:
@@ -131,15 +148,34 @@ class WebEvidenceArchiver:
             page.route("**/*", self._route_guard)
 
             try:
-                for index, url in enumerate(self.urls, start=1):
-                    capture = self._capture_one(page, run_dir, index, url)
-                    manifest["captures"].append(capture)
+                for index, url in enumerate(selected, start=1):
+                    try:
+                        capture = self._capture_one(page, run_dir, index, url)
+                        manifest["captures"].append(capture)
+                    except Exception as exc:
+                        # Do not persist URLs with query strings or external error bodies.
+                        parsed = urlparse(url)
+                        safe_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                        manifest["errors"].append(
+                            {"requested_url": safe_url, "error_category": type(exc).__name__}
+                        )
             finally:
                 context.close()
                 browser.close()
 
+        manifest["blocked_resources"] = dict(sorted(self._blocked_hosts.items()))
+        manifest["complete"] = len(manifest["captures"]) == len(selected)
         manifest_path = run_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.last_result = {
+            "requested": len(selected),
+            "captured": len(manifest["captures"]),
+            "failed": len(manifest["errors"]),
+            "complete": manifest["complete"],
+            "output": str(run_dir),
+            "manifest": str(manifest_path),
+            "blocked_resources": manifest["blocked_resources"],
+        }
         return run_dir
 
     def _capture_one(self, page, run_dir: Path, index: int, url: str) -> dict:
