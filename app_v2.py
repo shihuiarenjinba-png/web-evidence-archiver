@@ -35,7 +35,7 @@ def host_candidates(urls: list[str]) -> list[str]:
     return sorted({urlparse(url).hostname.casefold() for url in urls if urlparse(url).hostname})
 
 
-def build_managed_config(urls_text: str, hosts_text: str, output: str, name: str = "Web設定") -> dict:
+def build_managed_config(urls_text: str, hosts_text: str, output: str, name: str = "Web設定", memo_path: str = "") -> dict:
     urls = normalize_urls(urls_text)
     hosts = [value.strip() for value in hosts_text.split(",") if value.strip()]
     if not urls:
@@ -46,11 +46,17 @@ def build_managed_config(urls_text: str, hosts_text: str, output: str, name: str
         raise ValueError("出力先を指定してください。")
     for url in urls:
         validate_url(url, hosts)
-    return {
+    config = {
         "name": name.strip() or "Web設定", "allow_hosts": hosts, "urls": urls,
         "output_dir": output.strip(), "timeout_seconds": 30, "browser_channel": "msedge",
         "viewport": {"width": 1440, "height": 1000},
     }
+    if memo_path.strip():
+        memo = Path(memo_path).expanduser()
+        if memo.suffix.casefold() not in {".txt", ".md"}:
+            raise ValueError("記録先メモは .txt または .md を指定してください。")
+        config["memo_path"] = str(memo)
+    return config
 
 
 def merge_preserved_config(base: dict | None, edited: dict) -> dict:
@@ -105,8 +111,9 @@ class WebEvidenceArchiverAppV2(tk.Tk):
         notebook = ttk.Notebook(root); notebook.pack(fill="both", expand=True)
         new_tab, edit_tab, run_tab = ttk.Frame(notebook, padding=12), ttk.Frame(notebook, padding=12), ttk.Frame(notebook, padding=12)
         notebook.add(new_tab, text="1. 新規作成"); notebook.add(edit_tab, text="2. 保存済み設定を編集"); notebook.add(run_tab, text="3. 保存済み設定で実行")
-        self.new_form = self._make_form(new_tab)
-        actions = ttk.Frame(new_tab); actions.grid(row=6, column=0, columnspan=3, sticky="w", pady=8)
+        ttk.Label(new_tab, text="使い方: ①保存URLを1行ずつ入力 → ②「URLから許可ホスト候補を確認」→ ③必要ならメモを指定 → ④設定を保存", wraplength=980).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        self.new_form = self._make_form(new_tab, start_row=1)
+        actions = ttk.Frame(new_tab); actions.grid(row=self.new_form["last_row"] + 1, column=0, columnspan=3, sticky="w", pady=8)
         ttk.Button(actions, text="公開ページの例", command=self._new_example).pack(side="left")
         ttk.Button(actions, text="URLから許可ホスト候補を確認", command=lambda: self._suggest_hosts(self.new_form)).pack(side="left", padx=8)
         ttk.Button(actions, text="新しい設定として保存", command=self._save_new).pack(side="left")
@@ -115,8 +122,9 @@ class WebEvidenceArchiverAppV2(tk.Tk):
         ttk.Label(edit_tab, text="編集する設定JSON").grid(row=0, column=0, sticky="w")
         ttk.Entry(edit_tab, textvariable=self.edit_path_var).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(edit_tab, text="選択して読み込む", command=self._load_edit_dialog).grid(row=0, column=2)
-        self.edit_form = self._make_form(edit_tab, start_row=1)
-        actions = ttk.Frame(edit_tab); actions.grid(row=7, column=0, columnspan=3, sticky="w", pady=8)
+        ttk.Label(edit_tab, text="既存設定にURLを追加する場合: JSONを読み込み、URL欄の一番下へ1行追加して更新します。既存URLは残り、更新前バックアップも作成されます。", wraplength=980).grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 8))
+        self.edit_form = self._make_form(edit_tab, start_row=2)
+        actions = ttk.Frame(edit_tab); actions.grid(row=self.edit_form["last_row"] + 1, column=0, columnspan=3, sticky="w", pady=8)
         ttk.Button(actions, text="許可ホスト候補を確認", command=lambda: self._suggest_hosts(self.edit_form)).pack(side="left")
         ttk.Button(actions, text="既存設定を更新（確認・バックアップ）", command=self._update_edit).pack(side="left", padx=8)
         ttk.Button(actions, text="別名で保存", command=self._save_edit_as).pack(side="left")
@@ -142,7 +150,7 @@ class WebEvidenceArchiverAppV2(tk.Tk):
 
     def _make_form(self, parent, start_row: int = 0) -> dict:
         parent.columnconfigure(1, weight=1)
-        name, hosts, output = tk.StringVar(value="Web設定"), tk.StringVar(), tk.StringVar(value=str(DEFAULT_OUTPUT))
+        name, hosts, output, memo = tk.StringVar(value="Web設定"), tk.StringVar(), tk.StringVar(value=str(DEFAULT_OUTPUT)), tk.StringVar()
         ttk.Label(parent, text="設定名").grid(row=start_row, column=0, sticky="w", pady=4); ttk.Entry(parent, textvariable=name).grid(row=start_row, column=1, columnspan=2, sticky="ew", pady=4)
         ttk.Label(parent, text="保存URL（1行1件）").grid(row=start_row+1, column=0, sticky="nw", pady=4)
         urls = tk.Text(parent, height=8, wrap="none"); urls.grid(row=start_row+1, column=1, columnspan=2, sticky="nsew", pady=4)
@@ -150,14 +158,21 @@ class WebEvidenceArchiverAppV2(tk.Tk):
         ttk.Label(parent, text="候補は確認後に追加します。外部CDNを無条件には許可しません。").grid(row=start_row+3, column=1, columnspan=2, sticky="w")
         ttk.Label(parent, text="出力先").grid(row=start_row+4, column=0, sticky="w", pady=4); ttk.Entry(parent, textvariable=output).grid(row=start_row+4, column=1, sticky="ew", pady=4)
         ttk.Button(parent, text="選択", command=lambda: self._choose_output(output)).grid(row=start_row+4, column=2, padx=(6, 0))
-        return {"name": name, "urls": urls, "hosts": hosts, "output": output, "base": None}
+        ttk.Label(parent, text="記録先メモ（任意 .txt/.md）").grid(row=start_row+5, column=0, sticky="w", pady=4); ttk.Entry(parent, textvariable=memo).grid(row=start_row+5, column=1, sticky="ew", pady=4)
+        ttk.Button(parent, text="既存メモを選択", command=lambda: self._choose_memo(memo)).grid(row=start_row+5, column=2, padx=(6, 0))
+        ttk.Label(parent, text="指定すると取得後にURL・取得日時・保存先・manifestを追記します。既存文があれば末尾、空なら先頭から書きます。", wraplength=820).grid(row=start_row+6, column=1, columnspan=2, sticky="w")
+        return {"name": name, "urls": urls, "hosts": hosts, "output": output, "memo": memo, "base": None, "last_row": start_row+6}
 
     def _choose_output(self, variable: tk.StringVar) -> None:
         value = filedialog.askdirectory(parent=self, title="出力先フォルダーを選択")
         if value: variable.set(value)
 
+    def _choose_memo(self, variable: tk.StringVar) -> None:
+        value = filedialog.askopenfilename(parent=self, title="追記する既存メモを選択", filetypes=[("Text / Markdown", "*.txt *.md")])
+        if value: variable.set(value)
+
     def _config_from(self, form: dict) -> dict:
-        edited = build_managed_config(form["urls"].get("1.0", "end"), form["hosts"].get(), form["output"].get(), form["name"].get())
+        edited = build_managed_config(form["urls"].get("1.0", "end"), form["hosts"].get(), form["output"].get(), form["name"].get(), form["memo"].get())
         return merge_preserved_config(form.get("base"), edited)
 
     def _populate(self, form: dict, config: dict) -> None:
@@ -165,6 +180,7 @@ class WebEvidenceArchiverAppV2(tk.Tk):
         form["name"].set(str(config.get("name", "Web設定")))
         form["hosts"].set(", ".join(config.get("allow_hosts", [])))
         form["output"].set(str(config.get("output_dir", DEFAULT_OUTPUT)))
+        form["memo"].set(str(config.get("memo_path", "")))
         form["urls"].delete("1.0", "end"); form["urls"].insert("1.0", "\n".join(config.get("urls", [])))
 
     def _new_example(self) -> None:
