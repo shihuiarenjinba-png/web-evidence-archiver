@@ -91,6 +91,15 @@ Write-Host "== Release dependency evidence =="
 & $Python "$Root\release_metadata.py" --output $Artifacts --product $ProductName --version $Version
 if ($LASTEXITCODE -ne 0) { throw "Release metadata generation failed." }
 Copy-Item -LiteralPath (Join-Path $Root "LICENSE_PENDING_APPROVAL.txt") -Destination (Join-Path $Artifacts "LICENSE_PENDING_APPROVAL.txt") -Force
+Copy-Item -LiteralPath (Join-Path $Root "LICENSE_CANDIDATE_FOR_OWNER_APPROVAL.txt") -Destination (Join-Path $Artifacts "LICENSE_CANDIDATE_FOR_OWNER_APPROVAL.txt") -Force
+$SourceCommit = (& git -C $Root rev-parse HEAD).Trim()
+@(
+    "Product=$ProductName"
+    "Version=$Version"
+    "SourceCommit=$SourceCommit"
+    "SalesRelease=NO"
+    "LicenseStatus=OWNER_APPROVAL_REQUIRED"
+) | Set-Content -LiteralPath (Join-Path $Artifacts "VERSION.txt") -Encoding UTF8
 
 Write-Host "== Packaged Playwright / Edge runtime self-test =="
 $SelfTest = Start-Process -FilePath $Exe -ArgumentList "--self-test-browser" -PassThru

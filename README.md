@@ -1,6 +1,8 @@
 # Web Evidence Archiver
 
-指定したHTTPSページをローカルで開き、スクリーンショット・HTML・PDF・取得時刻・URL・SHA256を1セットの記録として保存するWindowsツールです。新規作成、保存済み設定の編集、保存済み設定での実行を別画面に分けています。
+指定したHTTPSページを取得時点のHTML・スクリーンショット・PDF・取得時刻・HTTP status・SHA-256・manifestとともにローカル保存するWindowsツールです。URLメモ帳やセキュリティ製品ではありません。許可ホスト・HTTPS制限・ローカル保存は安全性を補助する仕組みです。新規作成、保存済み設定の編集、保存済み設定での実行を別画面に分けています。
+
+設定JSONは「何を取得するか」を保存します。Web記録は実際に取得したHTML / PNG / PDF / metadata / manifestです。設定JSONだけを更新・削除しても、過去のWeb記録を自動的に変更・削除しません。
 
 ## できること
 
@@ -74,3 +76,5 @@ python archiver.py config.example.json
 - PyInstallerビルド・署名
 
 > Sales release: NO。正式LICENSE、第三者表示、署名、Human UI/DPI確認が完了するまで販売用リリースではありません。
+
+初回BOOTH版の対応OS候補はWindows 11 64-bitです。Windows 10は実機未検証のため対応対象に含めません。EXEは現在コード署名されておらず、Windowsまたは組織のセキュリティ設定で警告・実行制限が発生する場合があります。セキュリティ保護機能を無効化することは推奨しません。

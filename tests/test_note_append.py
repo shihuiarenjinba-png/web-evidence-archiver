@@ -14,7 +14,7 @@ class MemoLinkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             note = root / "notes.md"
-            note.write_text("既存メモ", encoding="utf-8")
+            note.write_text("既存の文章", encoding="utf-8")
             result = {
                 "created_at": "2026-10-07T18:00:00+09:00",
                 "captures": [{"requested_url": "https://example.com/"}],
@@ -24,7 +24,7 @@ class MemoLinkTests(unittest.TestCase):
             }
             append_capture_note(note, result)
             text = note.read_text(encoding="utf-8")
-            self.assertTrue(text.startswith("既存メモ"))
+            self.assertTrue(text.startswith("既存の文章"))
             self.assertIn("## Web Evidence Archiver 記録", text)
             self.assertIn("https://example.com/", text)
             self.assertIn("完了状態: 完了", text)

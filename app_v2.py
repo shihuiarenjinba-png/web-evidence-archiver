@@ -108,6 +108,7 @@ class WebEvidenceArchiverAppV2(tk.Tk):
         root = ttk.Frame(self, padding=14); root.pack(fill="both", expand=True)
         ttk.Label(root, text="Web Evidence Archiver", font=("Segoe UI", 18, "bold")).pack(anchor="w")
         ttk.Label(root, text="許可したHTTPSページをEdgeで開き、HTML・PNG・PDF・SHA-256を新しいフォルダーへ保存します。許可ホストは通信先の制限であり、サイトのログイン権限を与えるものではありません。", wraplength=1020).pack(anchor="w", pady=(3, 10))
+        ttk.Label(root, text="設定JSON = 何を取得するかを保存するファイル / Web記録 = 実際に取得したHTML・PNG・PDF・metadata・manifestの一式です。", wraplength=1020).pack(anchor="w", pady=(0, 10))
         notebook = ttk.Notebook(root); notebook.pack(fill="both", expand=True)
         new_tab, edit_tab, run_tab = ttk.Frame(notebook, padding=12), ttk.Frame(notebook, padding=12), ttk.Frame(notebook, padding=12)
         notebook.add(new_tab, text="1. 新規作成"); notebook.add(edit_tab, text="2. 保存済み設定を編集"); notebook.add(run_tab, text="3. 保存済み設定で実行")

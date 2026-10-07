@@ -1,0 +1,86 @@
+OWNER APPROVAL CANDIDATE — NOT EFFECTIVE — DO NOT DISTRIBUTE TO CUSTOMERS
+
+Product: Web Evidence Archiver
+Draft revision: 2026-10-07-r2
+Sales release: NO
+
+This text is a proposed product license. It becomes effective only after the
+rights holder/seller approves the remaining owner decisions, records an
+effective date and license version, and publishes the approved text with the
+product. Until then, no product license is granted by this file.
+
+1. LICENSOR AND PRODUCT
+Licensor: [LEGAL NAME OR ENTITY — OWNER APPROVAL REQUIRED]
+Covered product: Web Evidence Archiver
+Covered version: the version stated in the accompanying VERSION.txt
+Effective date: [OWNER APPROVAL REQUIRED]
+
+2. LICENSE GRANT (PROPOSED)
+After lawful purchase and subject to the approved Agreement, one purchaser may
+install and use the product on up to two PCs controlled by that same purchaser.
+Use is permitted for personal purposes and for work performed by that same
+person, including internal commercial work. The license is non-exclusive and
+non-transferable.
+
+Shared use by multiple people is not included. Organizations needing multiple
+users require separately approved licensing terms.
+
+3. RESTRICTIONS (PROPOSED)
+The purchaser must not redistribute, resell, sublicense, rent, lend, publish,
+or share the software, distribution ZIP, or license credentials with a third
+party. Any restriction on modification, reverse engineering, or
+interoperability applies only to the extent permitted by mandatory law and does
+not override rights granted by third-party open-source licenses.
+
+4. INPUTS, OUTPUTS, AND PRODUCT LIMITS
+The purchaser is responsible for rights and permissions for input data and any
+target service. The Licensor does not acquire ownership of input data merely
+because the product processes it. Output must be reviewed before reliance.
+Supported Windows versions, formats, network behavior, external requirements,
+and known limitations are stated on the product page and in the included
+README. Product-specific limitations and third-party license terms continue to
+apply.
+
+5. UPDATES AND SUPPORT (PROPOSED)
+The purchase is a buyout/perpetual right to use the purchased major version.
+It does not promise unlimited free updates, future major versions, continuous
+availability, or a fixed response time. The included corrective-update period,
+support period, major-upgrade policy, and end-of-support notice method must be
+approved and displayed on the product page before sale.
+
+BOOTH shop inquiry is the primary support route. Purchaser-only support,
+updates, or re-download help may require order verification. If the platform
+route is unavailable, the fallback contact is dmzmr37049@yahoo.co.jp. Proof of
+purchase is not required for pre-purchase questions, legally required
+disclosures, or statutory-rights requests.
+
+6. THIRD-PARTY SOFTWARE
+Third-party components remain subject to their own licenses. The included
+THIRD_PARTY_NOTICE, license texts, SBOM, and dependency lock apply to those
+components. This Agreement does not reduce third-party license rights.
+
+7. WARRANTIES, LIABILITY, AND STATUTORY RIGHTS
+The final approved text must not guarantee error-free operation for every
+input or Windows configuration, nor guarantee detection accuracy, evidentiary
+value, or the correctness of business, financial, legal, or accounting
+outcomes. Important files should be backed up and output reviewed. Any warranty
+disclaimer, liability cap, governing law, dispute term, or termination clause
+requires owner/legal approval and may not exclude non-waivable consumer rights.
+
+8. PAYMENT, CANCELLATION, AND REFUNDS
+The sales platform procedure, terms displayed at purchase, and applicable law
+apply. The final terms must not exclude remedies that cannot lawfully be
+excluded. BOOTH-specific wording requires owner/legal review before publication.
+
+9. OWNER APPROVAL RECORD
+Legal name/entity: [REQUIRED]
+License version: [REQUIRED]
+Effective date: [REQUIRED]
+Corrective-update/support period: [REQUIRED]
+Refund/cancellation wording reviewed: [REQUIRED]
+Liability/governing-law/termination text reviewed: [REQUIRED]
+Approved by: [OWNER]
+Approval date: [DATE]
+SHA-256 of approved text: [CALCULATE AFTER APPROVAL]
+
+END OF OWNER APPROVAL CANDIDATE
