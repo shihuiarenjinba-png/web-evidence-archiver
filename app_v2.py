@@ -308,9 +308,15 @@ class WebEvidenceArchiverAppV2(tk.Tk):
                     f"{capture.get('requested_url')} → {capture.get('final_url')} / "
                     f"HTTP {capture.get('http_status')} / 生成: {', '.join(capture.get('files', [])) or 'なし'}"
                 )
+            memo_status = ""
+            if result.get("memo_path"):
+                memo_status = f" / メモ追記: {result.get('memo_path')}"
+            elif result.get("memo_error"):
+                memo_status = f" / メモ追記失敗: {result.get('memo_error')}"
             self.status_var.set(
                 f"{state}: {result.get('captured')}/{result.get('requested')}件 / 失敗 {result.get('failed')}件"
                 f" / 保存先 {output} / manifest {result.get('manifest')} / ブロック資源 {result.get('blocked_resources')}"
+                + memo_status
                 + ("\n" + "\n".join(details) if details else "")
             )
             messagebox.showinfo("取得結果", self.status_var.get(), parent=self)
