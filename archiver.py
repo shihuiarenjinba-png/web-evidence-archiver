@@ -152,6 +152,17 @@ class WebEvidenceArchiver:
                     try:
                         capture = self._capture_one(page, run_dir, index, url)
                         manifest["captures"].append(capture)
+                        status = capture.get("http_status")
+                        if status is None or int(status) >= 400:
+                            parsed = urlparse(url)
+                            safe_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                            manifest["errors"].append(
+                                {
+                                    "requested_url": safe_url,
+                                    "error_category": "NoHttpResponse" if status is None else "HttpStatusError",
+                                    "http_status": status,
+                                }
+                            )
                     except Exception as exc:
                         # Do not persist URLs with query strings or external error bodies.
                         parsed = urlparse(url)
@@ -164,7 +175,11 @@ class WebEvidenceArchiver:
                 browser.close()
 
         manifest["blocked_resources"] = dict(sorted(self._blocked_hosts.items()))
-        manifest["complete"] = len(manifest["captures"]) == len(selected)
+        manifest["complete"] = (
+            len(manifest["captures"]) == len(selected)
+            and not manifest["errors"]
+            and not manifest["blocked_resources"]
+        )
         manifest_path = run_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         self.last_result = {

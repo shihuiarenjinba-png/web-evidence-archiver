@@ -77,7 +77,10 @@ class WebConfigManagementTests(unittest.TestCase):
                 "https://example.com/\nhttps://example.com/fail", "example.com", str(root / "out")
             )), encoding="utf-8")
             worker = WebEvidenceArchiver(path)
-            capture = {"folder": "001_example", "original_url": "https://example.com/", "files": {}}
+            capture = {
+                "folder": "001_example", "original_url": "https://example.com/",
+                "http_status": 200, "files": {},
+            }
             with patch.object(archiver_module, "sync_playwright", return_value=Manager()), patch.object(
                 worker, "_capture_one", side_effect=[capture, RuntimeError("fixture")]
             ):
@@ -85,6 +88,43 @@ class WebConfigManagementTests(unittest.TestCase):
             manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
             self.assertFalse(manifest["complete"]); self.assertEqual(len(manifest["captures"]), 1)
             self.assertEqual(len(manifest["errors"]), 1); self.assertEqual(worker.last_result["failed"], 1)
+
+    def test_http_error_and_blocked_resource_are_not_complete(self):
+        class Page:
+            def route(self, *_args): pass
+        class Context:
+            def new_page(self): return Page()
+            def close(self): pass
+        class Browser:
+            def new_context(self, **_kwargs): return Context()
+            def close(self): pass
+        class Chromium:
+            def launch(self, **_kwargs): return Browser()
+        class Playwright:
+            chromium = Chromium()
+        class Manager:
+            def __enter__(self): return Playwright()
+            def __exit__(self, *_args): return False
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); path = root / "config.json"
+            path.write_text(json.dumps(build_managed_config(
+                "https://example.com/missing", "example.com", str(root / "out")
+            )), encoding="utf-8")
+            worker = WebEvidenceArchiver(path)
+            capture = {
+                "folder": "001_missing", "original_url": "https://example.com/missing",
+                "http_status": 404, "files": {},
+            }
+            with patch.object(archiver_module, "sync_playwright", return_value=Manager()), patch.object(
+                worker, "_capture_one", return_value=capture
+            ):
+                worker._blocked_hosts = {"cdn.example.net": 2}
+                output = worker.capture_all()
+            manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+            self.assertFalse(manifest["complete"])
+            self.assertEqual(manifest["errors"][0]["error_category"], "HttpStatusError")
+            self.assertEqual(manifest["blocked_resources"], {"cdn.example.net": 2})
 
 
 if __name__ == "__main__":
