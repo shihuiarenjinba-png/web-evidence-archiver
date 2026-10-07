@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -48,6 +50,39 @@ def _display_url(url: str) -> str:
     if not parsed.scheme or not parsed.netloc:
         return ""
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+
+def append_capture_note(path: str | Path, result: dict) -> Path:
+    """Atomically append a short evidence reference to an existing .txt/.md note."""
+    target = Path(path).expanduser().resolve()
+    if target.suffix.casefold() not in {".txt", ".md"}:
+        raise ValueError("記録先メモは .txt または .md のみ対応しています。")
+    if not target.exists() or not target.is_file():
+        raise FileNotFoundError(f"記録先メモが見つかりません: {target}")
+    original = target.read_text(encoding="utf-8")
+    lines = ["## Web Evidence Archiver 記録"]
+    created = str(result.get("created_at", "")).strip()
+    if created:
+        lines.append(f"- 取得日時: {created}")
+    for capture in result.get("captures", []):
+        lines.append(f"- URL: {_display_url(capture.get('original_url', ''))}")
+    lines.append(f"- 保存先: {result.get('output', '')}")
+    lines.append(f"- manifest: {result.get('manifest', '')}")
+    lines.append(f"- 完了状態: {'完了' if result.get('complete') else '一部失敗' }")
+    entry = "\n".join(lines) + "\n"
+    separator = "\n\n" if original and not original.endswith("\n\n") else ""
+    new_text = original + separator + entry if original else entry
+    fd, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+            handle.write(new_text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, target)
+    finally:
+        if os.path.exists(temp_name):
+            os.unlink(temp_name)
+    return target
 
 
 def _unique_run_dir(parent: Path) -> Path:
@@ -103,6 +138,7 @@ class WebEvidenceArchiver:
         self.browser_channel = str(
             self.config.get("browser_channel", DEFAULT_BROWSER_CHANNEL)
         ).strip()
+        self.memo_path = str(self.config.get("memo_path", "")).strip()
         self.last_result: dict | None = None
         self._blocked_hosts: dict[str, int] = {}
 
@@ -191,6 +227,7 @@ class WebEvidenceArchiver:
         manifest_path = run_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         self.last_result = {
+            "created_at": manifest["created_at"],
             "requested": len(selected),
             "captured": len(manifest["captures"]),
             "failed": len(manifest["errors"]),
@@ -208,6 +245,13 @@ class WebEvidenceArchiver:
                 for item in manifest["captures"]
             ],
         }
+        if self.memo_path:
+            try:
+                note = append_capture_note(self.memo_path, self.last_result)
+                self.last_result["memo_path"] = str(note)
+            except Exception as exc:
+                self.last_result["memo_error"] = type(exc).__name__
+                self.last_result["complete"] = False
         return run_dir
 
     def _capture_one(self, page, run_dir: Path, index: int, url: str) -> dict:
