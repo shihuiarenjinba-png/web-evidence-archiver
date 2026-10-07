@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tkinter as tk
 import uuid
@@ -50,6 +51,15 @@ def build_managed_config(urls_text: str, hosts_text: str, output: str, name: str
         "output_dir": output.strip(), "timeout_seconds": 30, "browser_channel": "msedge",
         "viewport": {"width": 1440, "height": 1000},
     }
+
+
+def merge_preserved_config(base: dict | None, edited: dict) -> dict:
+    """Preserve legacy/extension fields not represented by the form."""
+    if not base:
+        return edited
+    merged = dict(base)
+    merged.update(edited)
+    return merged
 
 
 def safe_error_text(exc: Exception) -> str:
@@ -140,16 +150,18 @@ class WebEvidenceArchiverAppV2(tk.Tk):
         ttk.Label(parent, text="候補は確認後に追加します。外部CDNを無条件には許可しません。").grid(row=start_row+3, column=1, columnspan=2, sticky="w")
         ttk.Label(parent, text="出力先").grid(row=start_row+4, column=0, sticky="w", pady=4); ttk.Entry(parent, textvariable=output).grid(row=start_row+4, column=1, sticky="ew", pady=4)
         ttk.Button(parent, text="選択", command=lambda: self._choose_output(output)).grid(row=start_row+4, column=2, padx=(6, 0))
-        return {"name": name, "urls": urls, "hosts": hosts, "output": output}
+        return {"name": name, "urls": urls, "hosts": hosts, "output": output, "base": None}
 
     def _choose_output(self, variable: tk.StringVar) -> None:
         value = filedialog.askdirectory(parent=self, title="出力先フォルダーを選択")
         if value: variable.set(value)
 
     def _config_from(self, form: dict) -> dict:
-        return build_managed_config(form["urls"].get("1.0", "end"), form["hosts"].get(), form["output"].get(), form["name"].get())
+        edited = build_managed_config(form["urls"].get("1.0", "end"), form["hosts"].get(), form["output"].get(), form["name"].get())
+        return merge_preserved_config(form.get("base"), edited)
 
     def _populate(self, form: dict, config: dict) -> None:
+        form["base"] = json.loads(json.dumps(config))
         form["name"].set(str(config.get("name", "Web設定")))
         form["hosts"].set(", ".join(config.get("allow_hosts", [])))
         form["output"].set(str(config.get("output_dir", DEFAULT_OUTPUT)))
@@ -197,6 +209,7 @@ class WebEvidenceArchiverAppV2(tk.Tk):
         if not messagebox.askyesno("既存設定の更新", f"{len(config['urls'])}件のURLを含む設定へ更新し、変更前バックアップを作成します。続けますか？", parent=self): return
         try:
             _, backup = atomic_write_json(self.edit_path_var.get(), config, overwrite=True, backup=True); self.edit_original = config; self._refresh_library()
+            self.edit_form["base"] = json.loads(json.dumps(config))
             self.status_var.set(f"設定を原子的に更新しました。バックアップ: {backup}")
         except Exception as exc: messagebox.showerror("更新失敗", str(exc), parent=self)
 

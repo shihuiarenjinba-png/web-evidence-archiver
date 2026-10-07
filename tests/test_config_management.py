@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import archiver as archiver_module
-from app_v2 import build_managed_config, host_candidates, normalize_urls
+from app_v2 import build_managed_config, host_candidates, merge_preserved_config, normalize_urls
 from archiver import WebEvidenceArchiver, load_config
 from config_store import atomic_write_json, read_json_object
 
@@ -46,6 +46,14 @@ class WebConfigManagementTests(unittest.TestCase):
                 "output_dir": str(root / "out"), "timeout_seconds": 30,
             }), encoding="utf-8")
             self.assertEqual(load_config(path)["urls"], ["https://example.com/"])
+
+    def test_edit_preserves_unknown_legacy_fields(self):
+        base = build_managed_config("https://example.com/", "example.com", "out")
+        base["vendor_extension"] = {"keep": True}
+        edited = build_managed_config("https://example.com/\nhttps://example.com/about", "example.com", "out")
+        merged = merge_preserved_config(base, edited)
+        self.assertEqual(merged["vendor_extension"], {"keep": True})
+        self.assertEqual(len(merged["urls"]), 2)
 
     def test_invalid_json_read_leaves_caller_state_unchanged(self):
         with tempfile.TemporaryDirectory() as folder:
