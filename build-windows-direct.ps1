@@ -102,7 +102,7 @@ $SourceCommit = (& git -C $Root rev-parse HEAD).Trim()
 ) | Set-Content -LiteralPath (Join-Path $Artifacts "VERSION.txt") -Encoding UTF8
 
 Write-Host "== Packaged Playwright / Edge runtime self-test =="
-$SelfTest = Start-Process -FilePath $Exe -ArgumentList "--self-test-browser" -PassThru
+$SelfTest = Start-Process -FilePath $Exe -ArgumentList "--self-test-browser" -PassThru -WindowStyle Hidden
 if (-not $SelfTest.WaitForExit(60000)) {
     Stop-Process -Id $SelfTest.Id -Force -ErrorAction SilentlyContinue
     throw "Packaged browser runtime self-test timed out."
@@ -112,7 +112,7 @@ if ($SelfTest.ExitCode -ne 0) {
 }
 
 Write-Host "== Packaged GUI startup smoke test =="
-$Process = Start-Process -FilePath $Exe -PassThru
+$Process = Start-Process -FilePath $Exe -PassThru -WindowStyle Hidden
 try {
     Start-Sleep -Seconds 5
     if ($Process.HasExited) {
