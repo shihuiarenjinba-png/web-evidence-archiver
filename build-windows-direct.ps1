@@ -132,6 +132,7 @@ finally {
 $TargetExe = Join-Path $Artifacts "$ProductName-RC.exe"
 Copy-Item -LiteralPath $Exe -Destination $TargetExe -Force
 Copy-Item -LiteralPath (Join-Path $Root "README.md") -Destination (Join-Path $Artifacts "$ProductName-README.md") -Force
+Copy-Item -LiteralPath (Join-Path $Root "START_HERE.html") -Destination (Join-Path $Artifacts "START_HERE.html") -Force
 Copy-Item -LiteralPath (Join-Path $Root "config.example.json") -Destination (Join-Path $Artifacts "config.example.json") -Force
 $Hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $TargetExe).Hash.ToLowerInvariant()
 "$Hash  $([IO.Path]::GetFileName($TargetExe))" | Set-Content -LiteralPath "$TargetExe.sha256" -Encoding ASCII

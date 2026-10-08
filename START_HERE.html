@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>はじめに — Web Evidence Archiver</title>
+<style>body{font-family:"Segoe UI",Meiryo,sans-serif;max-width:920px;margin:36px auto;padding:0 24px;line-height:1.75;color:#172033}h1{color:#123a63}h2{margin-top:30px;border-bottom:2px solid #d9e5f1;padding-bottom:6px}code{background:#eef3f7;padding:2px 5px;border-radius:4px}.note,.warn{padding:14px 18px;border-radius:8px}.note{background:#eef7ff;border-left:5px solid #3178b9}.warn{background:#fff7e6;border-left:5px solid #d78a00}li{margin:.35em 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd6e0;padding:8px;text-align:left}footer{margin-top:36px;color:#5b6675;font-size:.92em}</style>
+</head>
+<body>
+<h1>Web Evidence Archiver — はじめに</h1>
+<div class="note">URLのメモ帳ではありません。許可したWebページを取得時点のHTML・PNG・PDF・metadata・SHA-256 manifestとしてローカル保存します。</div>
+<h2>最初にやること</h2>
+<ol>
+<li>EXEを起動し「新規作成」を選びます。</li>
+<li>保存URL、許可ホスト、出力先を入力します。</li>
+<li>新しい設定として保存します。</li>
+<li>保存済み設定を選び、取得を実行します。</li>
+<li>HTML、PNG、PDF、metadata、manifestと出力フォルダーを確認します。</li>
+</ol>
+<h2>入力例</h2>
+<table>
+<tr>
+<th>設定名</th>
+<td>Example Web Capture</td>
+</tr>
+<tr>
+<th>URL</th>
+<td>
+<code>https://example.com/</code>
+</td>
+</tr>
+<tr>
+<th>許可ホスト</th>
+<td>
+<code>example.com</code>
+</td>
+</tr>
+</table>
+<h2>出力されるもの</h2>
+<p>指定した出力先へHTML、PNG、PDF、metadata、SHA-256 manifestを保存します。取得結果と実際の保存先は完了画面で確認してください。</p>
+<h2>既存設定へURLを追加</h2>
+<ol>
+<li>設定JSONを読み込みます。</li>
+<li>URL欄の一番下へ新URLを1行追加します。</li>
+<li>既存URLが残っていることを確認します。</li>
+<li>更新を保存します。更新前backupが作成されます。</li>
+<li>元設定を残す場合は別名保存を選びます。</li>
+</ol>
+<p>設定JSONは「何を取得するか」の設定です。Web記録は別の出力フォルダーに保存される実成果物です。</p>
+<h2>任意メモ追記</h2>
+<p>既存の<code>.txt</code>／<code>.md</code>を指定すると、既存本文を保持した末尾へ取得日時、URL、保存先、manifest、完了状態を追記します。空ファイルなら先頭から記載します。DOCX／XLSX／PDFへは追記しません。</p>
+<h2>よくあるエラー</h2>
+<ul>
+<li>HTTPS以外、許可ホスト不一致、HTTP error、timeout、blocked resourceは結果とmanifestで確認します。</li>
+<li>ログイン、CAPTCHA、DRM、動画、強いbot対策、複雑な動的ページは正しく保存できない場合があります。</li>
+<li>出力先へ書き込めない場合は別フォルダーを選びます。</li>
+</ul>
+<div class="warn">法的証拠能力、ページの完全再現、外部サイトの継続提供を保証しません。</div>
+<h2>対応環境・制限</h2>
+<p>対応候補はWindows 11 64-bitです。Windows 10、125%／150%表示は未検証です。Microsoft Edgeが必要です。EXEは未署名です。</p>
+<h2>問い合わせ</h2>
+<p>BOOTHの「ショップへのお問い合わせ」が一次窓口です。利用できない場合のみ <a href="mailto:dmzmr37049@yahoo.co.jp">dmzmr37049@yahoo.co.jp</a> を利用してください。購入者限定サポートでは注文確認をお願いする場合があります。</p>
+<footer>Sales release: NO — owner承認前の準備版</footer>
+</body>
+</html>
+
