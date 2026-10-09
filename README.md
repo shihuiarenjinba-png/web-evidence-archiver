@@ -75,6 +75,8 @@ python archiver.py config.example.json
 - Playwright/Chromium同梱方式の検討
 - PyInstallerビルド・署名
 
-> Sales release: NO。正式LICENSE、第三者表示、署名、Human UI/DPI確認が完了するまで販売用リリースではありません。
+> Sales release: NO。正式LICENSE、第三者表示、最終ZIP gate、owner公開承認が完了するまで販売用リリースではありません。
 
 初回BOOTH版の対応OS候補はWindows 11 64-bitです。Windows 10は実機未検証のため対応対象に含めません。EXEは現在コード署名されておらず、Windowsまたは組織のセキュリティ設定で警告・実行制限が発生する場合があります。セキュリティ保護機能を無効化することは推奨しません。
+
+Windows 11の標準表示設定（100%）でowner確認済みです。125%／150%は未検証で、高DPI環境では表示が異なる場合があります。
