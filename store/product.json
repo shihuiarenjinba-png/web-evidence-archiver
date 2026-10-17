@@ -1,0 +1,11 @@
+{
+  "displayName": "Web Evidence Archiver",
+  "exeName": "WebEvidenceArchiver",
+  "appId": "WebEvidence",
+  "brandAbbreviation": "WEA",
+  "needsBundledBrowser": true,
+  "productClass": "Windows paid productivity tool",
+  "storeStatus": "HOLD_OFFICIAL_PARTNER_IDENTITY_REQUIRED",
+  "commercialLicense": "NOT_CERTIFIED",
+  "entryPoint": "app.py"
+}
