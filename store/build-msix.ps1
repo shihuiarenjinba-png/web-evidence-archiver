@@ -42,7 +42,7 @@ try {
   $out = Join-Path $root ("store-output\" + $tag)
   $dist = Join-Path $out "dist"
   $stage = Join-Path $out "stage"
-  New-Item -ItemType Directory -Path $dist,$stage -Force | Out-Null
+  New-Item -ItemType Directory -Path $dist,$stage,(Join-Path $out "work"),(Join-Path $out "spec") -Force | Out-Null
   & $python -m PyInstaller --noconfirm --clean --windowed --onedir --name $cfg.exeName --distpath $dist --workpath (Join-Path $out "work") --specpath (Join-Path $out "spec") (Join-Path $root "app.py")
   if ($LASTEXITCODE -ne 0) {throw "PyInstaller failed"}
   $built = Join-Path (Join-Path $dist $cfg.exeName) ($cfg.exeName + ".exe")
