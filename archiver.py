@@ -96,27 +96,52 @@ class WebEvidenceArchiver:
             "captures": [],
         }
 
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
-            context = browser.new_context(
-                viewport={
-                    "width": int(self.viewport.get("width", 1440)),
-                    "height": int(self.viewport.get("height", 1000)),
-                }
-            )
-            page = context.new_page()
-            page.route("**/*", self._route_guard)
-
-            try:
-                for index, url in enumerate(self.urls, start=1):
-                    capture = self._capture_one(page, run_dir, index, url)
-                    manifest["captures"].append(capture)
-            finally:
-                context.close()
-                browser.close()
-
-        manifest_path = run_dir / "manifest.json"
-        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        try:
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True)
+                try:
+                    context = browser.new_context(
+                        viewport={
+                            "width": int(self.viewport.get("width", 1440)),
+                            "height": int(self.viewport.get("height", 1000)),
+                        }
+                    )
+                    try:
+                        page = context.new_page()
+                        page.route("**/*", self._route_guard)
+                        for index, url in enumerate(self.urls, start=1):
+                            try:
+                                capture = self._capture_one(page, run_dir, index, url)
+                                capture["capture_status"] = "captured"
+                            except Exception as exc:
+                                capture = {
+                                    "capture_status": "failed",
+                                    "original_url": url,
+                                    "captured_at": datetime.now().astimezone().isoformat(),
+                                    "error_type": type(exc).__name__,
+                                    "error": str(exc),
+                                }
+                            manifest["captures"].append(capture)
+                    finally:
+                        context.close()
+                finally:
+                    browser.close()
+        except Exception as exc:
+            manifest["fatal_error"] = {
+                "type": type(exc).__name__, "message": str(exc),
+            }
+            raise
+        finally:
+            captures = manifest["captures"]
+            manifest["summary"] = {
+                "requested": len(self.urls),
+                "captured": sum(item.get("capture_status") == "captured" for item in captures),
+                "failed": sum(item.get("capture_status") == "failed" for item in captures),
+                "not_attempted": len(self.urls) - len(captures),
+            }
+            manifest_path = run_dir / "manifest.json"
+            with manifest_path.open("x", encoding="utf-8") as fh:
+                json.dump(manifest, fh, ensure_ascii=False, indent=2)
         return run_dir
 
     def _capture_one(self, page, run_dir: Path, index: int, url: str) -> dict:
