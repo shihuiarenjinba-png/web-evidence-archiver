@@ -9,3 +9,6 @@ dist/
 web_evidence/
 .DS_Store
 Thumbs.db
+
+store-output/
+store/assets/
