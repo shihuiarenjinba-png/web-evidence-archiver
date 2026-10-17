@@ -6,7 +6,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlparse
 
 from playwright.sync_api import Request, Route, sync_playwright
 
@@ -25,6 +25,12 @@ def validate_url(url: str, allow_hosts: list[str]) -> None:
         raise ValueError("HTTPS URLのみ許可されています。")
     if not parsed.hostname:
         raise ValueError("URLにホスト名がありません。")
+    if parsed.username or parsed.password:
+        raise ValueError("ユーザー名・パスワードをURLへ埋め込むことはできません。")
+    for key, _value in parse_qsl(parsed.query, keep_blank_values=True):
+        if any(term in key.casefold() for term in ("token", "secret", "password", "api_key", "credential")):
+            raise ValueError("URLのクエリに認証情報を含めないでください。")
+
     allowed = {host.casefold().strip() for host in allow_hosts if host.strip()}
     if not allowed:
         raise ValueError("allow_hostsを1件以上指定してください。")
@@ -70,7 +76,12 @@ class WebEvidenceArchiver:
         self.config = load_config(config_path)
         self.allow_hosts = list(self.config["allow_hosts"])
         self.urls = list(self.config["urls"])
-        self.output_dir = Path(self.config.get("output_dir", "web_evidence")).expanduser().resolve()
+        default_parent = Path.home() / "Documents"
+        if not default_parent.is_dir():
+            default_parent = Path.home()
+        self.output_dir = Path(
+            self.config.get("output_dir", str(default_parent / "WebEvidenceArchives"))
+        ).expanduser().resolve()
         self.timeout_ms = int(self.config.get("timeout_seconds", 30)) * 1000
         self.viewport = self.config.get("viewport", {"width": 1440, "height": 1000})
 
