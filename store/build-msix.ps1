@@ -20,7 +20,7 @@ if ($cfg.exeName -notmatch '^[A-Za-z][A-Za-z0-9_-]{2,50}$' -or
     $cfg.entryPoint -notmatch '^[A-Za-z][A-Za-z0-9_-]*\.py$') {
     throw "Unsafe or missing store/product.json exeName, appId or entryPoint."
 }
-if ($registration.repository -cne (Split-Path $root -Leaf) -or $cfg.displayName -cne $registration.displayName) {
+if ($registration.repository -cne $cfg.repository -or $cfg.displayName -cne $registration.displayName) {
     throw "Store registration belongs to a different product/repository."
 }
 $entry = Join-Path $root $cfg.entryPoint
