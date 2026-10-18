@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -9,7 +10,7 @@ import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl
 
 from playwright.sync_api import Request, Route, sync_playwright
 
@@ -22,17 +23,51 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+_BLOCKED_QUERY_KEYS = {"token", "access_token", "api_key", "apikey", "key",
+                       "password", "secret", "client_secret", "signature", "auth"}
+
+
+def _allowed_hosts(hosts: list[str]) -> set[str]:
+    if not isinstance(hosts, list) or not hosts:
+        raise ValueError("At least one approved hostname is required.")
+    result = set()
+    for host in hosts:
+        if not isinstance(host, str):
+            raise ValueError("Approved hosts must be hostname strings")
+        name = host.strip().lower().rstrip(".")
+        if (not name or len(name) > 253 or name == "localhost"
+                or name.endswith((".local", ".localhost", ".internal"))
+                or not re.fullmatch(r"[a-z0-9-]+(?:\\.[a-z0-9-]+)+", name)):
+            raise ValueError("Approved host must be a public DNS hostname")
+        try:
+            ipaddress.ip_address(name)
+        except ValueError:
+            pass
+        else:
+            raise ValueError("IP addresses are not supported as approved hosts")
+        result.add(name)
+    return result
+
+
 def validate_url(url: str, allow_hosts: list[str]) -> None:
-    parsed = urlparse(url)
-    if parsed.scheme.lower() != "https":
-        raise ValueError("HTTPS URLのみ許可されています。")
-    if not parsed.hostname:
-        raise ValueError("URLにホスト名がありません。")
-    allowed = {host.casefold().strip() for host in allow_hosts if host.strip()}
-    if not allowed:
-        raise ValueError("allow_hostsを1件以上指定してください。")
-    if parsed.hostname.casefold() not in allowed:
-        raise ValueError(f"allow_hosts外のホストです: {parsed.hostname}")
+    """Do not put credentials in archived URLs, screenshots, evidence or logs."""
+    if not isinstance(url, str):
+        raise ValueError("The URL must be a string")
+    allowed = _allowed_hosts(allow_hosts)
+    try:
+        parsed = urlparse(url)
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Invalid HTTPS URL") from exc
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme != "https" or not host or host not in allowed:
+        raise ValueError("URL must use an explicitly approved HTTPS host")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("URL credentials are not supported")
+    if port not in (None, 443) or parsed.fragment:
+        raise ValueError("Custom ports and URL fragments are not supported")
+    if any(key.casefold() in _BLOCKED_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
+        raise ValueError("Secret-bearing query parameters are not supported")
 
 
 def _safe_name(url: str) -> str:
@@ -78,15 +113,15 @@ class WebEvidenceArchiver:
         self.viewport = self.config.get("viewport", {"width": 1440, "height": 1000})
 
     def _route_guard(self, route: Route, request: Request) -> None:
-        parsed = urlparse(request.url)
-        if parsed.scheme in {"data", "blob", "about"}:
-            route.continue_()
-            return
-        if parsed.scheme.lower() != "https" or not parsed.hostname:
-            route.abort()
-            return
-        allowed = {host.casefold().strip() for host in self.allow_hosts if host.strip()}
-        if parsed.hostname.casefold() not in allowed:
+        try:
+            parsed = urlparse(request.url)
+            # Non-network resources are handled by Chromium. HTTP(S) must pass
+            # the same credential/allowlist rules as top-level navigation.
+            if parsed.scheme in {"data", "blob", "about"}:
+                route.continue_()
+                return
+            validate_url(request.url, self.allow_hosts)
+        except (ValueError, TypeError):
             route.abort()
             return
         route.continue_()
