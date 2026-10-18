@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "displayName": "Web Evidence Archiver",
+  "repository": "web-evidence-archiver",
+  "branch": "codex/commercial-completion-20261018",
+  "appType": "MSIX_OR_PWA_APP",
+  "targetPackage": "MSIX",
+  "partnerCenterState": "EXISTING_USER_REPORTED_RECONFIRM",
+  "evidence": "Partner Center product reported created 2026-10-13; current submission and identity must be checked.",
+  "recordedDate": "2026-10-18",
+  "storeIdentity": {
+    "storeId": null,
+    "packageIdentityName": null,
+    "packageIdentityPublisher": null,
+    "publisherDisplayName": null,
+    "packageFamilyName": null
+  },
+  "nameReservationDate": null,
+  "nameReservationExpiry": null,
+  "packageBuild": "NOT_VERIFIED",
+  "windowsE2e": "NOT_VERIFIED",
+  "wack": "NOT_VERIFIED",
+  "certificationSubmission": "NOT_AUTHORIZED",
+  "salesRelease": "HOLD"
+}
