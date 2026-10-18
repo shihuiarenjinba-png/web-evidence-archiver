@@ -1,6 +1,9 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+import json
+import tempfile
+from pathlib import Path
 
 from archiver import _safe_name, validate_url
 
@@ -45,6 +48,27 @@ class ArchiverTests(unittest.TestCase):
         route = MagicMock()
         runner._route_guard(route, SimpleNamespace(url="https://example.com/image.png"))
         route.continue_.assert_called_once()
+
+    def test_all_pages_receive_context_routing(self):
+        from archiver import WebEvidenceArchiver
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            settings = base / "settings.json"
+            settings.write_text(json.dumps({
+                "allow_hosts": ["example.com"],
+                "urls": ["https://example.com/"],
+                "output_dir": str(base / "archive"),
+            }), encoding="utf-8")
+            archiver = WebEvidenceArchiver(settings)
+            playwright = MagicMock()
+            context = playwright.__enter__.return_value.chromium.launch.return_value.new_context.return_value
+            with patch("archiver.sync_playwright", return_value=playwright), patch.object(
+                archiver, "_capture_one", return_value={"original_url": "https://example.com/"}
+            ):
+                archiver.capture_all()
+            context.route.assert_called_once_with("**/*", archiver._route_guard)
+            context.new_page.return_value.route.assert_not_called()
+            self.assertEqual(context.new_page.call_count, 1)
 
     def test_safe_name(self):
         value = _safe_name("https://example.com/pricing/2026?q=x")
