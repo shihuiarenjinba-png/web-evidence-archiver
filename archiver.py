@@ -3,7 +3,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -145,44 +148,52 @@ class WebEvidenceArchiver:
         return run_dir
 
     def _capture_one(self, page, run_dir: Path, index: int, url: str) -> dict:
+        """Publish a capture only once HTML, PNG, PDF and hashes all succeed."""
         validate_url(url, self.allow_hosts)
         name = f"{index:03d}_{_safe_name(url)}"
         page_dir = run_dir / name
-        page_dir.mkdir()
+        temporary = Path(tempfile.mkdtemp(prefix='.pending_evidence_', dir=run_dir))
+        try:
+            response = page.goto(url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+            page.wait_for_timeout(750)
+            final_url = page.url
+            validate_url(final_url, self.allow_hosts)
 
-        response = page.goto(url, wait_until="domcontentloaded", timeout=self.timeout_ms)
-        page.wait_for_timeout(750)
-        final_url = page.url
-        validate_url(final_url, self.allow_hosts)
+            html_path = temporary / "page.html"
+            screenshot_path = temporary / "screenshot.png"
+            pdf_path = temporary / "page.pdf"
 
-        html_path = page_dir / "page.html"
-        screenshot_path = page_dir / "screenshot.png"
-        pdf_path = page_dir / "page.pdf"
+            html_path.write_text(page.content(), encoding="utf-8")
+            page.screenshot(path=str(screenshot_path), full_page=True)
+            page.pdf(path=str(pdf_path), format="A4", print_background=True)
 
-        html_path.write_text(page.content(), encoding="utf-8")
-        page.screenshot(path=str(screenshot_path), full_page=True)
-        page.pdf(path=str(pdf_path), format="A4", print_background=True)
-
-        title = page.title()
-        captured_at = datetime.now().astimezone().isoformat()
-        status = response.status if response is not None else None
-
-        metadata = {
-            "original_url": url,
-            "final_url": final_url,
-            "title": title,
-            "http_status": status,
-            "captured_at": captured_at,
-            "files": {
-                "html": {"path": "page.html", "sha256": sha256_file(html_path)},
-                "screenshot": {"path": "screenshot.png", "sha256": sha256_file(screenshot_path)},
-                "pdf": {"path": "page.pdf", "sha256": sha256_file(pdf_path)},
-            },
-        }
-        (page_dir / "metadata.json").write_text(
-            json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        return {"folder": name, **metadata}
+            for output in (html_path, screenshot_path, pdf_path):
+                if not output.is_file() or output.stat().st_size == 0:
+                    raise ValueError('Capture is incomplete: empty output')
+            title = page.title()
+            captured_at = datetime.now().astimezone().isoformat()
+            status = response.status if response is not None else None
+            metadata = {
+                "original_url": url,
+                "final_url": final_url,
+                "title": title,
+                "http_status": status,
+                "captured_at": captured_at,
+                "files": {
+                    "html": {"path": "page.html", "sha256": sha256_file(html_path)},
+                    "screenshot": {"path": "screenshot.png", "sha256": sha256_file(screenshot_path)},
+                    "pdf": {"path": "page.pdf", "sha256": sha256_file(pdf_path)},
+                },
+            }
+            with (temporary / "metadata.json").open("x", encoding="utf-8") as fh:
+                json.dump(metadata, fh, ensure_ascii=False, indent=2)
+            # The completed directory appears atomically. A failed capture is
+            # never published as a folder containing partial evidence.
+            os.rename(temporary, page_dir)
+            return {"folder": name, **metadata}
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary)
 
 
 def main() -> None:
