@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from archiver import WebEvidenceArchiver
+from archiver import WebEvidenceArchiver, main
 
 
 class CommercialArchiveAcceptanceTests(unittest.TestCase):
@@ -33,6 +33,29 @@ class CommercialArchiveAcceptanceTests(unittest.TestCase):
                 {"requested": 2, "captured": 1, "failed": 1, "not_attempted": 0})
             self.assertEqual(manifest["captures"][0]["capture_status"], "failed")
             self.assertEqual(manifest["captures"][1]["capture_status"], "captured")
+
+    def test_cli_returns_failure_for_partial_archive(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            archive = self._create(root)
+            out = root / "evidence" / "partial"
+            out.mkdir(parents=True)
+            (out / "manifest.json").write_text(json.dumps({
+                "summary": {"requested": 2, "captured": 1, "failed": 1, "not_attempted": 0}
+            }), encoding="utf-8")
+            import io
+            import contextlib
+            with patch("archiver.WebEvidenceArchiver.capture_all", return_value=out), patch(
+                "sys.argv", ["archiver.py", str(root / "config.json")]
+            ), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(main(), 1)
+            (out / "manifest.json").write_text(json.dumps({
+                "summary": {"requested": 2, "captured": 2, "failed": 0, "not_attempted": 0}
+            }), encoding="utf-8")
+            with patch("archiver.WebEvidenceArchiver.capture_all", return_value=out), patch(
+                "sys.argv", ["archiver.py", str(root / "config.json")]
+            ), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(main(), 0)
 
     @patch("archiver.sync_playwright")
     def test_browser_start_failure_writes_fatal_manifest(self, playwright):
