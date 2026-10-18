@@ -9,3 +9,7 @@ dist/
 web_evidence/
 .DS_Store
 Thumbs.db
+
+# Generated packages and not-yet-approved logos (local only)
+store-output/
+store/assets/
