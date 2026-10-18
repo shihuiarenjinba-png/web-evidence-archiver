@@ -55,9 +55,9 @@ def check(msix: Path | None = None) -> dict:
     if record.get("partnerCenterState") not in CONFIRMED_STATES:
         blockers.append("Partner Center name reservation / existing product not confirmed.")
     if record.get("certificationSubmission") != "NOT_AUTHORIZED":
-        warnings.append("Check certificationSubmission flag; this script never authorizes release.")
+        blockers.append("Certification is not authorized for draft package preparation.")
     if record.get("salesRelease") != "HOLD":
-        warnings.append("Sales flag is not HOLD; verify separate owner's authorization.")
+        blockers.append("Expected salesRelease=HOLD until owner authorizes release.")
     if product.get("needsBundledBrowser"):
         blockers.append("Bundled Chromium runtime is not proven; Web Archiver package HOLD.")
 
@@ -92,6 +92,8 @@ def check(msix: Path | None = None) -> dict:
                     missing = sorted(required - members)
                     if missing:
                         blockers.append(f"MSIX archive missing: {missing}")
+                    if len(z.namelist()) != len(members):
+                        blockers.append("MSIX archive has duplicate entry names.")
                     manifest = ET.fromstring(z.read("AppxManifest.xml"))
                     ns = {"m": "http://schemas.microsoft.com/appx/manifest/foundation/windows10"}
                     tag = manifest.find("m:Identity", ns)
@@ -107,6 +109,19 @@ def check(msix: Path | None = None) -> dict:
                         version = tag.get("Version") or ""
                         if not re.fullmatch(r"\d+\.\d+\.\d+\.0", version):
                             blockers.append("MSIX manifest version must end in .0.")
+                        elif any(int(part) > 65535 for part in version.split(".")):
+                            blockers.append("MSIX version component must be <=65535.")
+                        if tag.get("ProcessorArchitecture") != "x64":
+                            blockers.append("Expected x64 architecture in package Identity.")
+                    display = manifest.find("m:Properties/m:DisplayName", ns)
+                    if display is None or display.text != name:
+                        blockers.append("MSIX display name differs from confirmed Store name.")
+                    app = manifest.find("m:Applications/m:Application", ns)
+                    if app is None or app.get("Id") != product.get("appId") or (
+                        (app.get("Executable") or "").replace("/", "\\") !=
+                        "App\\" + product.get("exeName", "") + ".exe"
+                    ):
+                        blockers.append("MSIX Application ID or EXE path differs from product config.")
                     h = hashlib.sha256()
                     with msix.open("rb") as fh:
                         for block in iter(lambda: fh.read(1024 * 1024), b""):
