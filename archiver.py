@@ -240,13 +240,18 @@ class WebEvidenceArchiver:
                 shutil.rmtree(temporary)
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Web Evidence Archiver")
     parser.add_argument("config")
     args = parser.parse_args()
     result = WebEvidenceArchiver(args.config).capture_all()
     print(result)
+    # A partial archive remains available for review, but must never be a
+    # successful unattended command or downstream pipeline result.
+    summary = json.loads((result / "manifest.json").read_text(encoding="utf-8"))["summary"]
+    return 1 if (summary["failed"] or summary["not_attempted"]
+                 or summary["captured"] != summary["requested"]) else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
