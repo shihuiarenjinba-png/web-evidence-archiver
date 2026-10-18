@@ -108,6 +108,8 @@ try {
     if (-not (Test-Path -LiteralPath $python)) { throw "Python venv executable missing." }
     $v = (& $python --version 2>&1 | Out-String).Trim()
     if ($v -notmatch '^Python 3\.11\.') { throw "Python 3.11 is required for baseline build: $v" }
+    $pythonBits = (& $python -c "import struct; print(struct.calcsize('P') * 8)" | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $pythonBits -cne "64") { throw "Python interpreter is not x64: $pythonBits" }
     $requirements = Join-Path $root "requirements.txt"
     if (Test-Path -LiteralPath $requirements) {
         & $python -m pip install -r $requirements
