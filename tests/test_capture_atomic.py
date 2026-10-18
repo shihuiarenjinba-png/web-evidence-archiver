@@ -45,6 +45,16 @@ class CaptureTransactionTests(unittest.TestCase):
         self.assertTrue((folder/'page.pdf').exists())
         metadata = json.loads((folder/'metadata.json').read_text(encoding='utf-8'))
         self.assertEqual(metadata['files']['pdf']['sha256'], sha256_file(folder/'page.pdf'))
+    def test_http_404_is_not_published_as_success(self):
+        class NotFoundPage(FakePage):
+            def goto(self, url, **kwargs):
+                self.url = url
+                return SimpleNamespace(status=404)
+        with self.assertRaisesRegex(ValueError, "successful HTTP response"):
+            self.archiver._capture_one(NotFoundPage(), self.root, 1,
+                                       "https://example.com/missing")
+        self.assertEqual(list(self.root.iterdir()), [])
+
     def test_pdf_failure_leaves_no_partial_folder(self):
         with self.assertRaises(RuntimeError):
             self.archiver._capture_one(FakePage(fail_at='pdf'), self.root, 1, 'https://example.com/record')
