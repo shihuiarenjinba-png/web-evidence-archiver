@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $registration = Get-Content -LiteralPath (Join-Path $PSScriptRoot "partner_center_registration.json") -Raw -Encoding UTF8 | ConvertFrom-Json
 $product = Get-Content -LiteralPath (Join-Path $PSScriptRoot "product.json") -Raw -Encoding UTF8 | ConvertFrom-Json
-if ($registration.repository -cne (Split-Path $repo -Leaf) -or $registration.displayName -cne $product.displayName) {
+if ($registration.repository -cne $product.repository -or $registration.displayName -cne $product.displayName) {
     throw "Store registration and product.json do not match."
 }
 if ($registration.partnerCenterState -notin @('EXISTING_CONFIRMED', 'RESERVED_CONFIRMED', 'SUBMISSION_DRAFT_CONFIRMED')) {
