@@ -35,7 +35,7 @@ def check(msix: Path | None = None) -> dict:
     product = json.loads((STORE / "product.json").read_text(encoding="utf-8"))
     record = json.loads((STORE / "partner_center_registration.json").read_text(encoding="utf-8"))
     name = product.get("displayName", "")
-    repo = ROOT.name
+    repo = product.get("repository", "")
     if record.get("repository") != repo or record.get("displayName") != name:
         blockers.append("Product and registration metadata do not match repository.")
     if record.get("targetPackage") != "MSIX":
