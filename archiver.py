@@ -37,7 +37,7 @@ def _allowed_hosts(hosts: list[str]) -> set[str]:
         name = host.strip().lower().rstrip(".")
         if (not name or len(name) > 253 or name == "localhost"
                 or name.endswith((".local", ".localhost", ".internal"))
-                or not re.fullmatch(r"[a-z0-9-]+(?:\\.[a-z0-9-]+)+", name)):
+                or not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", name)):
             raise ValueError("Approved host must be a public DNS hostname")
         try:
             ipaddress.ip_address(name)
