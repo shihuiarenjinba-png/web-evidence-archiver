@@ -160,7 +160,9 @@ class WebEvidenceArchiver:
                                     "original_url": url,
                                     "captured_at": datetime.now().astimezone().isoformat(),
                                     "error_type": type(exc).__name__,
-                                    "error": str(exc),
+                                    # Error messages from third-party pages may contain
+                                    # tokens, URLs, filenames or personal data.
+                                    "error": "Capture failed; review locally with approved test data.",
                                 }
                             manifest["captures"].append(capture)
                     finally:
@@ -169,7 +171,7 @@ class WebEvidenceArchiver:
                     browser.close()
         except Exception as exc:
             manifest["fatal_error"] = {
-                "type": type(exc).__name__, "message": str(exc),
+                "type": type(exc).__name__, "message": "Capture could not start or complete.",
             }
             raise
         finally:
@@ -193,6 +195,10 @@ class WebEvidenceArchiver:
         temporary = Path(tempfile.mkdtemp(prefix='.pending_evidence_', dir=run_dir))
         try:
             response = page.goto(url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+            # An HTTP error page is not the requested evidence. Never publish
+            # it as a successful capture, even when HTML/PDF were generated.
+            if response is None or not (200 <= int(response.status) < 400):
+                raise ValueError("Navigation did not return a successful HTTP response")
             page.wait_for_timeout(750)
             final_url = page.url
             validate_url(final_url, self.allow_hosts)
