@@ -10,5 +10,6 @@
   "entryPoint": "app.py",
   "partnerCenterRegistration": "EXISTING_USER_REPORTED_RECONFIRM",
   "msixPackageStatus": "NOT_VERIFIED",
-  "notes": "App ID and executable name are development placeholders only, not official Store identity."
+  "notes": "App ID and executable name are development placeholders only, not official Store identity.",
+  "repository": "web-evidence-archiver"
 }
