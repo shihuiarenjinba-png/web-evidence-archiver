@@ -119,8 +119,9 @@ class WebEvidenceArchiverApp(tk.Tk):
             self.tree.heading(name, text=title)
             self.tree.column(name, width=width, anchor="w", stretch=name in {"url", "folder"})
         self.tree.grid(row=0, column=0, sticky="nsew")
-        ttk.Scrollbar(results, command=self.tree.yview).grid(row=0, column=1, sticky="ns")
-        self.tree.configure(yscrollcommand=lambda *args: None)  # Tree handles result rows independently
+        result_scrollbar = ttk.Scrollbar(results, command=self.tree.yview)
+        result_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.tree.configure(yscrollcommand=result_scrollbar.set)
         ttk.Label(outer, textvariable=self.status_var, wraplength=900,
                   justify="left").grid(row=5, column=0, sticky="ew", pady=(8, 0))
 
