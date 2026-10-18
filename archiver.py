@@ -142,11 +142,14 @@ class WebEvidenceArchiver:
                         viewport={
                             "width": int(self.viewport.get("width", 1440)),
                             "height": int(self.viewport.get("height", 1000)),
-                        }
+                        },
+                        service_workers="block",
                     )
                     try:
+                        # Context routing also covers new pages and popups; page.route
+                        # can miss popup's very first navigation request.
+                        context.route("**/*", self._route_guard)
                         page = context.new_page()
-                        page.route("**/*", self._route_guard)
                         for index, url in enumerate(self.urls, start=1):
                             try:
                                 capture = self._capture_one(page, run_dir, index, url)
