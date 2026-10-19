@@ -104,13 +104,13 @@ try {
     [IO.File]::WriteAllText((Join-Path $Stage 'AppxManifest.xml'), $manifest,
         (New-Object Text.UTF8Encoding($false)))
     if (-not (Test-Path -LiteralPath $Output)) { New-Item -ItemType Directory -Path $Output | Out-Null }
-    & $MakeAppx.Source pack /d $Stage /p $PackagePath /nv
+    & $MakeAppx.Source pack /d $Stage /p $PackagePath
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $PackagePath -PathType Leaf)) {
         throw 'MakeAppx packaging failed.'
     }
     $created = $true
     New-Item -ItemType Directory -Path $Roundtrip | Out-Null
-    & $MakeAppx.Source unpack /p $PackagePath /d $Roundtrip /nv
+    & $MakeAppx.Source unpack /p $PackagePath /d $Roundtrip
     if ($LASTEXITCODE -ne 0) { throw 'MSIX unpack verification failed.' }
     $OriginalHash = (Get-FileHash -LiteralPath $ExePath -Algorithm SHA256).Hash
     $UnpackedHash = (Get-FileHash -LiteralPath (Join-Path $Roundtrip $AppExe) -Algorithm SHA256).Hash
