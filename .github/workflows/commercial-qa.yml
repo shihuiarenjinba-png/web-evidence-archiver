@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'codex/commercial-completion-20261018'
+      - 'ui/simple-product-flow-20261019'
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,6 +25,6 @@ jobs:
       - name: Run all unit regression (mock browser, no network)
         run: python -m unittest discover -s tests -p 'test*.py' -v
       - name: Compile source and tests
-        run: python -m compileall -q app.py archiver.py tests
+        run: python -m compileall -q app.py archiver.py gui_capture_plan.py tests
       - name: Release hold
         run: echo "Browser bundle, full URL evidence, Windows UI, signed MSIX and WACK are not yet cleared."
