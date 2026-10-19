@@ -8,9 +8,15 @@ import os
 import re
 import shutil
 import tempfile
+import sys
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, parse_qsl
+
+# PyInstaller extracts bundled Chromium under the frozen Playwright package.
+# Never silently depend on the developer's global browser cache on buyer PCs.
+if getattr(sys, "frozen", False):
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 
 from playwright.sync_api import Request, Route, sync_playwright
 
