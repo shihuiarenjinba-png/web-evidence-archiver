@@ -59,7 +59,10 @@ def blockers_for(root: Path, registration: dict, product: dict) -> list[str]:
         blockers.append("storeId: this product's owner-provided identifier missing or mismatched")
     if registration.get("storeIdVerificationStatus") != "PARTNER_CENTER_VERIFIED":
         blockers.append("storeId: live Partner Center confirmation not recorded")
-    if registration.get("identityFieldVerification", {}).get("storeId") != registration.get("storeIdVerificationStatus"):
+    id_provenance = registration.get("identityFieldVerification")
+    if not isinstance(id_provenance, dict):
+        id_provenance = {}
+    if id_provenance.get("storeId") != registration.get("storeIdVerificationStatus"):
         blockers.append("storeId: inconsistent provenance in identityFieldVerification")
     if registration.get("partnerCenterState") not in (
             "EXISTING_CONFIRMED", "RESERVED_CONFIRMED", "SUBMISSION_DRAFT_CONFIRMED"):
