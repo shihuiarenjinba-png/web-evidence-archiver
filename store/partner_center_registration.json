@@ -32,5 +32,8 @@
   },
   "approvedStoreVersion": null,
   "manifestResources": [],
-  "browserBundleApproval": null
+  "browserBundleApproval": null,
+  "displayNameVerificationStatus": "SOURCE_TITLE_NOT_PARTNER_CENTER_VERIFIED",
+  "approvedStoreVersionStatus": "UNKNOWN",
+  "manifestResourcesVerificationStatus": "UNKNOWN"
 }
