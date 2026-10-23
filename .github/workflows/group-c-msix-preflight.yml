@@ -1,4 +1,4 @@
-# Run unit regression and browser-aware readiness; never fabricate a Store identity.
+# Isolated Windows validation; build only after strict approved identity preflight.
 name: Group C Web Evidence MSIX preflight
 on:
   push:
@@ -10,33 +10,59 @@ jobs:
   inspect:
     runs-on: windows-latest
     timeout-minutes: 30
+    outputs:
+      ready: ${{ steps.gate.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install declared requirements
+      - name: Install declared dependencies
         run: python -m pip install -r requirements.txt
-      - name: Compile and execute source regressions
+      - name: Compile application, preflight and regression tests
         shell: pwsh
         run: |
           python -m compileall -q app.py archiver.py store tests
           if ($LASTEXITCODE -ne 0) { throw 'Python compilation failed' }
-          python -m unittest discover -s tests -p 'test_*.py' -v
+          python -m unittest discover -s tests -p 'test*.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'Unit regression failed' }
-      - name: Report exact packaging blockers (not a build)
+      - name: Strict identity and Chromium packaging input gate
+        id: gate
         shell: pwsh
-        run: |
-          python store/msix_preflight.py --json-out store-output/msix-preflight.json
-          if ($LASTEXITCODE -ne 0) { throw 'MSIX preflight report failed to execute' }
-          Get-Content store-output/msix-preflight.json
-      - name: Keep audit report
+        run: ./store/build-msix.ps1 -PreflightOnly
+      - name: Preserve blocked or ready input report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-evidence-msix-preflight-${{ github.run_id }}
+          path: store-output/**
+          if-no-files-found: error
+          retention-days: 14
+
+  build-unsigned-candidate:
+    needs: inspect
+    if: needs.inspect.outputs.ready == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze approved Chromium, pack and inspect unsigned MSIX
+        shell: pwsh
+        run: ./store/build-msix.ps1
+      - name: Retain MSIX and SHA256 evidence
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: web-evidence-msix-preflight-${{ github.run_id }}-${{ github.run_attempt }}
-          path: store-output/msix-preflight.json
+          name: web-evidence-msix-candidate-${{ github.run_id }}
+          path: store-output/**
           if-no-files-found: error
           retention-days: 14
