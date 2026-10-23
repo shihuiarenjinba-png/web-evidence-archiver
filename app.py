@@ -118,7 +118,7 @@ class WebEvidenceArchiverApp(tk.Tk):
                 self.progress.stop()
                 self.run_button.state(["!disabled"])
                 if success:
-                    message = (f"記録フォルダ: {value} / 成功: {summary['captured']} / "
+                    message = (f"記録フォルダ: {Path(value).name} / 成功: {summary['captured']} / "
                                f"失敗: {summary['failed']} / 未試行: {summary['not_attempted']}。"
                                "詳細はmanifest.jsonで確認してください。")
                     self.status_var.set(message)
