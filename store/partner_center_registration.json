@@ -6,10 +6,10 @@
   "appType": "MSIX_OR_PWA_APP",
   "targetPackage": "MSIX",
   "partnerCenterState": "EXISTING_USER_REPORTED_RECONFIRM",
-  "evidence": "Partner Center product reported created 2026-10-13; current submission and identity must be checked.",
+  "evidence": "Owner confirmed the Store ID digits in chat on 2026-10-23; not verified live in Partner Center. The app bundles a browser: executable/resource completeness and Playwright/Chromium distribution compliance must be evidenced. Package Identity, Publisher, PublisherDisplayName, PFN, Store version, and approved artwork remain unknown. Keep HOLD; do not upload.",
   "recordedDate": "2026-10-18",
   "storeIdentity": {
-    "storeId": null,
+    "storeId": "9NNT1B142ZWV",
     "packageIdentityName": null,
     "packageIdentityPublisher": null,
     "publisherDisplayName": null,
@@ -21,5 +21,16 @@
   "windowsE2e": "NOT_VERIFIED",
   "wack": "NOT_VERIFIED",
   "certificationSubmission": "NOT_AUTHORIZED",
-  "salesRelease": "HOLD"
+  "salesRelease": "HOLD",
+  "storeIdVerificationStatus": "USER_CONFIRMED_NOT_LIVE_VERIFIED",
+  "identityFieldVerification": {
+    "storeId": "USER_CONFIRMED_NOT_LIVE_VERIFIED",
+    "packageIdentityName": "UNKNOWN",
+    "packageIdentityPublisher": "UNKNOWN",
+    "publisherDisplayName": "UNKNOWN",
+    "packageFamilyName": "UNKNOWN"
+  },
+  "approvedStoreVersion": null,
+  "manifestResources": [],
+  "browserBundleApproval": null
 }
