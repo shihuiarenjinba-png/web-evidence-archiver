@@ -20,6 +20,10 @@ function Git-Value([string[]]$Parameters) {
 function Escape-Xml([string]$s) { return [Security.SecurityElement]::Escape($s) }
 
 # Required clean-source check, before even writing a preflight report.
+$RemoteUrl = Git-Value -Parameters @('remote','get-url','origin')
+if ($RemoteUrl -notmatch '(?i)github[.]com[:/]shihuiarenjinba-png/web-evidence-archiver(?:[.]git)?$') {
+    throw 'Wrong origin repository: expected Web Evidence Archiver.'
+}
 $Branch = Git-Value -Parameters @('branch','--show-current')
 $Commit = Git-Value -Parameters @('rev-parse','HEAD')
 $RemoteCommit = Git-Value -Parameters @('rev-parse',('origin/' + $BranchExpected))
