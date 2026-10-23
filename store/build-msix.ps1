@@ -24,6 +24,7 @@ $RemoteUrl = Git-Value -Parameters @('remote','get-url','origin')
 if ($RemoteUrl -notmatch '(?i)github[.]com[:/]shihuiarenjinba-png/web-evidence-archiver(?:[.]git)?$') {
     throw 'Wrong origin repository: expected Web Evidence Archiver.'
 }
+Git-Value -Parameters @('fetch','origin') | Out-Null
 $Branch = Git-Value -Parameters @('branch','--show-current')
 $Commit = Git-Value -Parameters @('rev-parse','HEAD')
 $RemoteCommit = Git-Value -Parameters @('rev-parse',('origin/' + $BranchExpected))
