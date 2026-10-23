@@ -5,10 +5,10 @@
   "brandAbbreviation": "WEA",
   "needsBundledBrowser": true,
   "productClass": "Windows paid productivity tool",
-  "storeStatus": "HOLD_OFFICIAL_PARTNER_IDENTITY_REQUIRED",
+  "storeStatus": "HOLD_STORE_VERSION_ARTWORK_BROWSER_QA_REQUIRED",
   "commercialLicense": "NOT_CERTIFIED",
   "entryPoint": "app.py",
-  "partnerCenterRegistration": "EXISTING_USER_REPORTED_RECONFIRM",
+  "partnerCenterRegistration": "PARTNER_CENTER_SCREENSHOT_VERIFIED",
   "msixPackageStatus": "NOT_VERIFIED",
-  "notes": "App ID and executable name are development placeholders only, not official Store identity."
+  "notes": "Microsoft Store reserved name and package identity are evidenced by the owner-provided Partner Center Product Identity screenshot. Store Version, approved artwork, browser bundle/license evidence, MSIX build, and Windows QA remain HOLD."
 }
