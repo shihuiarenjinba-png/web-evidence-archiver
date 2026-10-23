@@ -49,6 +49,8 @@ def blockers_for(root: Path, registration: dict, product: dict) -> list[str]:
         blockers.append("repository: wrong product")
     if registration.get("displayName") != product.get("displayName"):
         blockers.append("displayName: product and registration differ")
+    if registration.get("displayNameVerificationStatus") != "PARTNER_CENTER_VERIFIED":
+        blockers.append("displayName: reserved Partner Center product name not live-verified")
     if product.get("needsBundledBrowser") is not True:
         blockers.append("browser: product config must explicitly request a bundled browser")
     if product.get("entryPoint") != "app.py":
@@ -57,6 +59,8 @@ def blockers_for(root: Path, registration: dict, product: dict) -> list[str]:
         blockers.append("storeId: this product's owner-provided identifier missing or mismatched")
     if registration.get("storeIdVerificationStatus") != "PARTNER_CENTER_VERIFIED":
         blockers.append("storeId: live Partner Center confirmation not recorded")
+    if registration.get("identityFieldVerification", {}).get("storeId") != registration.get("storeIdVerificationStatus"):
+        blockers.append("storeId: inconsistent provenance in identityFieldVerification")
     if registration.get("partnerCenterState") not in (
             "EXISTING_CONFIRMED", "RESERVED_CONFIRMED", "SUBMISSION_DRAFT_CONFIRMED"):
         blockers.append("partnerCenterState: unverified or conditional")
@@ -84,6 +88,10 @@ def blockers_for(root: Path, registration: dict, product: dict) -> list[str]:
         version_ok = components[0] >= 1 and all(x <= 65535 for x in components)
     if not version_ok:
         blockers.append("approvedStoreVersion: exact approved four-part Store version required (revision 0)")
+    if registration.get("approvedStoreVersionStatus") != "OWNER_APPROVED":
+        blockers.append("approvedStoreVersion: owner version approval not recorded")
+    if registration.get("manifestResourcesVerificationStatus") != "OWNER_APPROVED":
+        blockers.append("manifestResources: owner approval not recorded")
     if registration.get("manifestResources") not in (["ja-JP"], ["en-US"],
                                                        ["ja-JP", "en-US"],
                                                        ["en-US", "ja-JP"]):
