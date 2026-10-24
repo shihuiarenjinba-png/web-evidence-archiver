@@ -1,11 +1,28 @@
 from __future__ import annotations
 
+import json
 import locale
 import os
+from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-_LANGUAGE = "ja" if any((x or "").lower().startswith("ja") for x in (locale.getlocale()[0], os.environ.get("LANG"))) else "en"
+def _settings_path() -> Path:
+    base = os.environ.get("LOCALAPPDATA")
+    if base:
+        return Path(base) / "PrivacyWindowsTools" / "language.json"
+    return Path.home() / ".privacy-windows-tools" / "language.json"
+
+
+def _saved_language() -> str | None:
+    try:
+        value = json.loads(_settings_path().read_text(encoding="utf-8")).get("language")
+        return value if value in {"en", "ja"} else None
+    except Exception:
+        return None
+
+
+_LANGUAGE = _saved_language() or ("ja" if any((x or "").lower().startswith("ja") for x in (locale.getlocale()[0], os.environ.get("LANG"))) else "en")
 _CONTROLLERS = []
 _PATCHED = False
 
@@ -59,6 +76,12 @@ def set_language(lang):
     if lang not in {"en", "ja"}:
         raise ValueError("language must be 'en' or 'ja'")
     _LANGUAGE = lang
+    try:
+        path = _settings_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"language": lang}, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
     for controller in tuple(_CONTROLLERS):
         controller.refresh()
 
