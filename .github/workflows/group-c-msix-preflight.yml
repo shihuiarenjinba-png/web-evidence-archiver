@@ -13,10 +13,10 @@ jobs:
     outputs:
       ready: ${{ steps.gate.outputs.ready }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Validate PowerShell syntax before build
@@ -52,7 +52,7 @@ jobs:
         run: ./store/build-msix.ps1 -PreflightOnly
       - name: Preserve blocked or ready input report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-evidence-msix-preflight-${{ github.run_id }}
           path: store-output/**
@@ -65,10 +65,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Generate QA-only placeholder package logos
@@ -107,7 +107,7 @@ jobs:
           Write-Host "QA_UNSIGNED_VERSION=$qaVersion"
           Write-Host 'STORE_SUBMISSION_AUTHORIZED=FALSE'
       - name: Retain QA-only MSIX and hash evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-evidence-QA_UNSIGNED-validation-msix-${{ github.run_id }}-${{ github.run_attempt }}
           path: store-output/**
@@ -120,10 +120,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Freeze approved Chromium, pack and inspect unsigned MSIX
@@ -131,7 +131,7 @@ jobs:
         run: ./store/build-msix.ps1
       - name: Retain MSIX and SHA256 evidence
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-evidence-QA_UNSIGNED-msix-${{ github.run_id }}
           path: store-output/**
