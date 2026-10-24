@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 from archiver import WebEvidenceArchiver, validate_url
 from ui_desktop import bind_shortcuts, restore_window_state, save_window_state
+from ui_commandbar import CommandBar
 
 
 class WebEvidenceArchiverApp(tk.Tk):
@@ -27,6 +28,14 @@ class WebEvidenceArchiverApp(tk.Tk):
         self.status_var = tk.StringVar(value="保存したいHTTPS URLと保存先を指定してください。")
         self._events = queue.Queue()
         self._running = False
+        self.command_bar = CommandBar(self)
+        self.command_bar.pack(fill="x", side="top")
+        self.command_bar.add_command("single", "1", "One page", lambda: self._select_mode(0))
+        self.command_bar.add_command("batch", "≡", "Multi URL", lambda: self._select_mode(1))
+        self.command_bar.add_separator()
+        self.command_bar.add_command("output", "⌂", "Output", self._pick_output)
+        self.command_bar.add_command("save", "■", "Save evidence", self._run, primary=True, enabled=False)
+        self.command_bar.add_spacer()
         self._build()
         self.after(150, self._poll)
         self.protocol("WM_DELETE_WINDOW", self._close)
@@ -89,14 +98,16 @@ class WebEvidenceArchiverApp(tk.Tk):
             wraplength=700, justify="left",
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(8, 0))
 
-        self.run_button = ttk.Button(body, text="証拠セットを保存", command=self._run)
-        self.run_button.grid(row=4, column=0, columnspan=3, sticky="w", pady=(6, 2))
-        ttk.Label(body, text="押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。", wraplength=760, justify="left").grid(row=5, column=0, columnspan=3, sticky="w", pady=(0, 6))
+        ttk.Label(body, text="上の Save evidence を押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。", wraplength=760, justify="left").grid(row=4, column=0, columnspan=3, sticky="w", pady=(6, 6))
         self.progress = ttk.Progressbar(body, mode="indeterminate")
-        self.progress.grid(row=6, column=0, columnspan=3, sticky="ew")
+        self.progress.grid(row=5, column=0, columnspan=3, sticky="ew")
         ttk.Label(body, textvariable=self.status_var, wraplength=760, justify="left").grid(
-            row=7, column=0, columnspan=3, sticky="w", pady=12
+            row=6, column=0, columnspan=3, sticky="w", pady=12
         )
+
+    def _select_mode(self, index: int) -> None:
+        self.mode_tabs.select(index)
+        self._refresh_actions()
 
     def _refresh_actions(self) -> None:
         selected = self.mode_tabs.index(self.mode_tabs.select()) if hasattr(self, "mode_tabs") else 0
@@ -105,7 +116,7 @@ class WebEvidenceArchiverApp(tk.Tk):
         else:
             ready = bool(self.config_var.get().strip())
         ready = ready and not self._running
-        self.run_button.state(["!disabled"] if ready else ["disabled"])
+        self.command_bar.set_enabled("save", ready)
 
     def _pick_output(self) -> None:
         folder = filedialog.askdirectory(title="保存先フォルダ")
