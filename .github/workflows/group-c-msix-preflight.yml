@@ -41,6 +41,61 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  qa-unsigned-structural-msix:
+    needs: inspect
+    if: always() && needs.inspect.result == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate QA-only placeholder package logos
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $assets = Join-Path $env:RUNNER_TEMP 'web-evidence-qa-assets'
+          New-Item -ItemType Directory -Path $assets -Force | Out-Null
+          Add-Type -AssemblyName System.Drawing
+          foreach ($spec in @(
+            @('StoreLogo.png',50,50),
+            @('Square44x44Logo.png',44,44),
+            @('Square150x150Logo.png',150,150)
+          )) {
+            $name = [string]$spec[0]; $w = [int]$spec[1]; $h = [int]$spec[2]
+            $bmp = New-Object System.Drawing.Bitmap($w,$h)
+            try {
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              try {
+                $g.Clear([System.Drawing.Color]::White)
+                $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black,2)
+                try { $g.DrawRectangle($pen,1,1,$w-3,$h-3) } finally { $pen.Dispose() }
+              } finally { $g.Dispose() }
+              $bmp.Save((Join-Path $assets $name),[System.Drawing.Imaging.ImageFormat]::Png)
+            } finally { $bmp.Dispose() }
+          }
+          Write-Host 'QA_ASSETS=GENERATED_NOT_STORE_APPROVED'
+      - name: Build Chromium bundle, pack and verify QA-only MSIX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $qaVersion = "1.0.$($env:GITHUB_RUN_NUMBER).0"
+          $assets = Join-Path $env:RUNNER_TEMP 'web-evidence-qa-assets'
+          ./store/build-qa-msix.ps1 -Version $qaVersion -AssetsDirectory $assets
+          if ($LASTEXITCODE -ne 0) { throw "QA Web Evidence MSIX builder failed: $LASTEXITCODE" }
+          Write-Host "QA_UNSIGNED_VERSION=$qaVersion"
+          Write-Host 'STORE_SUBMISSION_AUTHORIZED=FALSE'
+      - name: Retain QA-only MSIX and hash evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-evidence-QA_UNSIGNED-validation-msix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: store-output/**
+          if-no-files-found: error
+          retention-days: 30
+
   build-unsigned-candidate:
     needs: inspect
     if: needs.inspect.outputs.ready == 'true'
