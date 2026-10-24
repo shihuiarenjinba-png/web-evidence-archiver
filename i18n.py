@@ -27,6 +27,8 @@ _CONTROLLERS = []
 _PATCHED = False
 
 TEXTS = {
+    "証拠セットを保存": ("Save evidence set", "証拠セットを保存"),
+    "押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。": ("Captures the target page and saves HTML, PNG, PDF and SHA-256 together in one output folder.", "押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。"),
     "Web Evidence Archiver": ("Web Evidence Archiver", "Web証拠アーカイバー"),
     "1. URLから記録（1サイト）": ("1. Save one website", "1. URLから記録（1サイト）"),
     "HTTPS URL": ("HTTPS URL", "HTTPS URL"),
