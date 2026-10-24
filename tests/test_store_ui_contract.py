@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = (ROOT / "app.py").read_text(encoding="utf-8")
-CHECKS = [["Web Evidence Archiver","reserved Store name"],["self.geometry(\"810x455\")","default geometry"],["self.minsize(710, 400)","minimum geometry"],["Path(value).name","output path privacy"]]
+CHECKS = [["Web Evidence Archiver","reserved Store name"],["self.geometry(\"810x500\")","default geometry"],["self.minsize(710, 440)","minimum geometry"],["Path(value).name","output path privacy"]]
 
 class StoreUiContractTests(unittest.TestCase):
     def test_reviewed_ui_contract_is_present(self):
