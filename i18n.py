@@ -73,6 +73,9 @@ def get_language():
 def translate(text):
     if not isinstance(text, str):
         return text
+    if "\n" in text:
+        first, rest = text.split("\n", 1)
+        return first + "\n" + str(translate(rest))
     if text in TEXTS:
         en, ja = TEXTS[text]
         return ja if _LANGUAGE == "ja" else en
