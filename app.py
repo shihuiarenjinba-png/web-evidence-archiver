@@ -33,30 +33,43 @@ class WebEvidenceArchiverApp(tk.Tk):
         body = ttk.Frame(self, padding=16)
         body.pack(fill="both", expand=True)
         body.columnconfigure(1, weight=1)
+        ttk.Label(body, text="Web Evidence Archiver", font=("Segoe UI", 17, "bold")).grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 3)
+        )
+        ttk.Label(
+            body,
+            text="① URLまたは設定JSONを選択  →  ② 保存先を確認  →  ③ HTML・PNG・PDF・SHA256を保存",
+            wraplength=760,
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        ttk.Label(
+            body,
+            text="入力したHTTPSホストだけを取得対象にし、外部ホストの素材は取得しません。",
+            wraplength=760,
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 6))
         ttk.Label(body, text="1. URLから記録（1サイト）",
-                  font=("Segoe UI", 13, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", pady=10)
-        ttk.Label(body, text="HTTPS URL").grid(row=1, column=0, sticky="w", pady=7)
-        ttk.Entry(body, textvariable=self.url_var).grid(row=1, column=1, sticky="ew")
-        ttk.Label(body, text="出力フォルダ").grid(row=2, column=0, sticky="w", pady=7)
-        ttk.Entry(body, textvariable=self.output_var).grid(row=2, column=1, sticky="ew")
-        ttk.Button(body, text="参照", command=self._pick_output).grid(row=2, column=2, padx=8)
+                  font=("Segoe UI", 13, "bold")).grid(row=3, column=0, columnspan=3, sticky="w", pady=10)
+        ttk.Label(body, text="HTTPS URL").grid(row=4, column=0, sticky="w", pady=7)
+        ttk.Entry(body, textvariable=self.url_var).grid(row=4, column=1, sticky="ew")
+        ttk.Label(body, text="出力フォルダ").grid(row=5, column=0, sticky="w", pady=7)
+        ttk.Entry(body, textvariable=self.output_var).grid(row=5, column=1, sticky="ew")
+        ttk.Button(body, text="参照", command=self._pick_output).grid(row=5, column=2, padx=8)
 
         ttk.Label(body, text="2. または既存の複数URL設定を使う",
-                  font=("Segoe UI", 13, "bold")).grid(row=3, column=0, columnspan=3, sticky="w", pady=(18, 7))
-        ttk.Label(body, text="設定JSON").grid(row=4, column=0, sticky="w", pady=7)
-        ttk.Entry(body, textvariable=self.config_var).grid(row=4, column=1, sticky="ew")
-        ttk.Button(body, text="選択", command=self._pick_config).grid(row=4, column=2, padx=8)
+                  font=("Segoe UI", 13, "bold")).grid(row=6, column=0, columnspan=3, sticky="w", pady=(18, 7))
+        ttk.Label(body, text="設定JSON").grid(row=7, column=0, sticky="w", pady=7)
+        ttk.Entry(body, textvariable=self.config_var).grid(row=7, column=1, sticky="ew")
+        ttk.Button(body, text="選択", command=self._pick_config).grid(row=7, column=2, padx=8)
 
         ttk.Label(body, text=(
             "設定JSONが選択されていればJSONの設定を優先します。URLから取得する場合は入力URLの"
             "ホストだけを許可し、外部ホストの素材は取得しません。HTML・PNG・PDFとSHA256を保存します。"
-        ), wraplength=760, justify="left").grid(row=5, column=0, columnspan=3, sticky="w", pady=(10, 6))
+        ), wraplength=760, justify="left").grid(row=8, column=0, columnspan=3, sticky="w", pady=(10, 6))
         self.run_button = ttk.Button(body, text="保存を開始", command=self._run)
-        self.run_button.grid(row=6, column=0, columnspan=3, sticky="w", pady=(6, 6))
+        self.run_button.grid(row=9, column=0, columnspan=3, sticky="w", pady=(6, 6))
         self.progress = ttk.Progressbar(body, mode="indeterminate")
-        self.progress.grid(row=7, column=0, columnspan=3, sticky="ew")
+        self.progress.grid(row=10, column=0, columnspan=3, sticky="ew")
         ttk.Label(body, textvariable=self.status_var, wraplength=760, justify="left").grid(
-            row=8, column=0, columnspan=3, sticky="w", pady=12
+            row=11, column=0, columnspan=3, sticky="w", pady=12
         )
 
     def _pick_output(self) -> None:
@@ -141,4 +154,8 @@ class WebEvidenceArchiverApp(tk.Tk):
 
 
 if __name__ == "__main__":
-    WebEvidenceArchiverApp().mainloop()
+    from i18n import install_bilingual_ui
+
+    app = WebEvidenceArchiverApp()
+    install_bilingual_ui(app)
+    app.mainloop()
