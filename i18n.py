@@ -27,6 +27,11 @@ _CONTROLLERS = []
 _PATCHED = False
 
 TEXTS = {
+    "One page": ("One page", "1件保存"),
+    "Multi URL": ("Multi URL", "複数URL"),
+    "Output": ("Output", "保存先"),
+    "Save evidence": ("Save evidence", "証拠を保存"),
+    "上の Save evidence を押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。": ("上の Save evidence を押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。", "Press Save evidence above to capture the target page and save HTML, PNG, PDF and SHA-256 together."),
     "1件を保存": ("Save one page", "1件を保存"),
     "複数URL設定": ("Multiple URLs", "複数URL設定"),
     "保存フォルダ": ("Output folder", "保存フォルダ"),
