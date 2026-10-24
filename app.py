@@ -58,37 +58,53 @@ class WebEvidenceArchiverApp(tk.Tk):
             text="入力したHTTPSホストだけを取得対象にし、外部ホストの素材は取得しません。",
             wraplength=760,
         ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 6))
-        ttk.Label(body, text="1. URLから記録（1サイト）",
-                  font=("Segoe UI", 13, "bold")).grid(row=3, column=0, columnspan=3, sticky="w", pady=10)
-        ttk.Label(body, text="HTTPS URL").grid(row=4, column=0, sticky="w", pady=7)
-        ttk.Entry(body, textvariable=self.url_var).grid(row=4, column=1, sticky="ew")
-        ttk.Label(body, text="出力フォルダ").grid(row=5, column=0, sticky="w", pady=7)
-        ttk.Entry(body, textvariable=self.output_var).grid(row=5, column=1, sticky="ew")
-        ttk.Button(body, text="参照", command=self._pick_output).grid(row=5, column=2, padx=8)
+        self.mode_tabs = ttk.Notebook(body)
+        self.mode_tabs.grid(row=3, column=0, columnspan=3, sticky="nsew", pady=(8, 6))
+        self.mode_tabs.bind("<<NotebookTabChanged>>", lambda _event: self._refresh_actions())
 
-        ttk.Label(body, text="2. または既存の複数URL設定を使う",
-                  font=("Segoe UI", 13, "bold")).grid(row=6, column=0, columnspan=3, sticky="w", pady=(18, 7))
-        ttk.Label(body, text="設定JSON").grid(row=7, column=0, sticky="w", pady=7)
-        ttk.Entry(body, textvariable=self.config_var).grid(row=7, column=1, sticky="ew")
-        ttk.Button(body, text="選択", command=self._pick_config).grid(row=7, column=2, padx=8)
+        direct_tab = ttk.Frame(self.mode_tabs, padding=12)
+        batch_tab = ttk.Frame(self.mode_tabs, padding=12)
+        direct_tab.columnconfigure(1, weight=1)
+        batch_tab.columnconfigure(1, weight=1)
+        self.mode_tabs.add(direct_tab, text="1件を保存")
+        self.mode_tabs.add(batch_tab, text="複数URL設定")
 
-        ttk.Label(body, text=(
-            "設定JSONが選択されていればJSONの設定を優先します。URLから取得する場合は入力URLの"
-            "ホストだけを許可し、外部ホストの素材は取得しません。HTML・PNG・PDFとSHA256を保存します。"
-        ), wraplength=760, justify="left").grid(row=8, column=0, columnspan=3, sticky="w", pady=(10, 6))
+        ttk.Label(direct_tab, text="HTTPS URL").grid(row=0, column=0, sticky="w", pady=7)
+        ttk.Entry(direct_tab, textvariable=self.url_var).grid(row=0, column=1, sticky="ew")
+        ttk.Label(direct_tab, text="保存フォルダ").grid(row=1, column=0, sticky="w", pady=7)
+        ttk.Entry(direct_tab, textvariable=self.output_var).grid(row=1, column=1, sticky="ew")
+        ttk.Button(direct_tab, text="参照", command=self._pick_output).grid(row=1, column=2, padx=8)
+        ttk.Label(
+            direct_tab,
+            text="このタブでは1ページだけ保存します。URLと保存先を選ぶと下の保存ボタンが使えるようになります。",
+            wraplength=700, justify="left",
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(8, 0))
+
+        ttk.Label(batch_tab, text="設定JSON").grid(row=0, column=0, sticky="w", pady=7)
+        ttk.Entry(batch_tab, textvariable=self.config_var).grid(row=0, column=1, sticky="ew")
+        ttk.Button(batch_tab, text="選択", command=self._pick_config).grid(row=0, column=2, padx=8)
+        ttk.Label(
+            batch_tab,
+            text="このタブでは設定JSONに書かれた複数URLを順番に保存します。設定ファイルを選ぶと保存できます。",
+            wraplength=700, justify="left",
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(8, 0))
+
         self.run_button = ttk.Button(body, text="証拠セットを保存", command=self._run)
-        self.run_button.grid(row=9, column=0, columnspan=3, sticky="w", pady=(6, 2))
-        ttk.Label(body, text="押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。", wraplength=760, justify="left").grid(row=10, column=0, columnspan=3, sticky="w", pady=(0, 6))
+        self.run_button.grid(row=4, column=0, columnspan=3, sticky="w", pady=(6, 2))
+        ttk.Label(body, text="押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。", wraplength=760, justify="left").grid(row=5, column=0, columnspan=3, sticky="w", pady=(0, 6))
         self.progress = ttk.Progressbar(body, mode="indeterminate")
-        self.progress.grid(row=12, column=0, columnspan=3, sticky="ew")
+        self.progress.grid(row=6, column=0, columnspan=3, sticky="ew")
         ttk.Label(body, textvariable=self.status_var, wraplength=760, justify="left").grid(
-            row=11, column=0, columnspan=3, sticky="w", pady=12
+            row=7, column=0, columnspan=3, sticky="w", pady=12
         )
 
     def _refresh_actions(self) -> None:
-        config_ready = bool(self.config_var.get().strip())
-        direct_ready = bool(self.url_var.get().strip() and self.output_var.get().strip())
-        ready = (config_ready or direct_ready) and not self._running
+        selected = self.mode_tabs.index(self.mode_tabs.select()) if hasattr(self, "mode_tabs") else 0
+        if selected == 0:
+            ready = bool(self.url_var.get().strip() and self.output_var.get().strip())
+        else:
+            ready = bool(self.config_var.get().strip())
+        ready = ready and not self._running
         self.run_button.state(["!disabled"] if ready else ["disabled"])
 
     def _pick_output(self) -> None:
@@ -105,10 +121,11 @@ class WebEvidenceArchiverApp(tk.Tk):
     def _run(self) -> None:
         if self._running:
             return
-        config = self.config_var.get().strip()
+        selected = self.mode_tabs.index(self.mode_tabs.select())
+        config = self.config_var.get().strip() if selected == 1 else ""
         url = self.url_var.get().strip()
         destination = self.output_var.get().strip()
-        if not config:
+        if selected == 0:
             if not destination:
                 messagebox.showerror("入力不足", "保存フォルダを選択してください。")
                 return
@@ -118,6 +135,9 @@ class WebEvidenceArchiverApp(tk.Tk):
             except ValueError as exc:
                 messagebox.showerror("URLエラー", str(exc))
                 return
+        elif not config:
+            messagebox.showerror("入力不足", "設定JSONを選択してください。")
+            return
         self._running = True
         self._refresh_actions()
         self.progress.start(15)
