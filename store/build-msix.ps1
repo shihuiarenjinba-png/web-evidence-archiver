@@ -146,7 +146,7 @@ $Sdk = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Windows Kits
 $MakeAppx = Get-ChildItem -LiteralPath $Sdk -Recurse -File -Filter 'MakeAppx.exe' -ErrorAction SilentlyContinue |
     Where-Object { $_.DirectoryName -match '\\x64$' } | Sort-Object FullName -Descending | Select-Object -First 1
 if (-not $MakeAppx) { throw 'Windows SDK x64 MakeAppx missing.' }
-$Msix = Join-Path $Output ('WebEvidenceArchiver_' + $Version + '_x64.msix')
+$Msix = Join-Path $Output ('WebEvidenceArchiver_QA_UNSIGNED_' + $Version + '_x64.msix')
 if (Test-Path -LiteralPath $Msix) { throw 'Refusing to overwrite existing candidate.' }
 Call-Checked -Program $MakeAppx.FullName -Parameters @('pack','/d',$Stage,'/p',$Msix)
 Call-Checked -Program $MakeAppx.FullName -Parameters @('unpack','/p',$Msix,'/d',$Unpack)
@@ -178,8 +178,8 @@ if ($id.GetAttribute('Name') -cne [string]$Reg.storeIdentity.packageIdentityName
 $MsixSha = (Get-FileHash -LiteralPath $Msix -Algorithm SHA256).Hash.ToLowerInvariant()
 $Evidence = [ordered]@{ source_commit=$Commit; source_branch=$Branch; store_id=$Reg.storeIdentity.storeId;
     msix=$Msix; msix_sha256=$MsixSha; exe_sha256=$ExeSha; browser_tree_sha256=$BrowserHash;
-    signature='UNSIGNED'; install_qa='NOT_VERIFIED'; certification='NOT_AUTHORIZED'; sales='HOLD' }
+    signature='QA_UNSIGNED'; install_qa='NOT_VERIFIED'; certification='NOT_AUTHORIZED'; sales='HOLD' }
 $Evidence | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $Output 'BUILD_EVIDENCE.json')
-Write-Host "MSIX_CANDIDATE_CREATED=$Msix"
+Write-Host "QA_UNSIGNED_MSIX_CREATED=$Msix"
 Write-Host "MSIX_SHA256=$MsixSha"
 Write-Host 'STORE_SUBMISSION=NOT_AUTHORIZED; SALES=HOLD'
