@@ -49,6 +49,9 @@ def translate(text):
     if _LANGUAGE == "en":
         for ja, en in PHRASES:
             text = text.replace(ja, en)
+    else:
+        for ja, en in PHRASES:
+            text = text.replace(en, ja)
     return text
 
 def set_language(lang):
@@ -124,6 +127,12 @@ class LanguageController:
     def refresh(self):
         self.root.title(translate(self.original_title))
         self._refresh(self.root)
+        status_var = getattr(self.root, "status_var", None)
+        if status_var is not None and hasattr(status_var, "get") and hasattr(status_var, "set"):
+            current = status_var.get()
+            translated = translate(current)
+            if translated != current:
+                status_var.set(translated)
         self.button.configure(text="English" if _LANGUAGE == "ja" else "日本語")
 
     def toggle(self):
