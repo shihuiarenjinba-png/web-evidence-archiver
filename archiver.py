@@ -229,8 +229,24 @@ class WebEvidenceArchiver:
                     "pdf": {"path": "page.pdf", "sha256": sha256_file(pdf_path)},
                 },
             }
-            with (temporary / "metadata.json").open("x", encoding="utf-8") as fh:
+            metadata_path = temporary / "metadata.json"
+            with metadata_path.open("x", encoding="utf-8") as fh:
                 json.dump(metadata, fh, ensure_ascii=False, indent=2)
+
+            # Re-read the evidence manifest and every artifact hash before
+            # publishing the capture directory. Never label corrupt/partial
+            # evidence as a successful capture.
+            with metadata_path.open("r", encoding="utf-8") as fh:
+                reread = json.load(fh)
+            for key, output in (
+                ("html", html_path), ("screenshot", screenshot_path), ("pdf", pdf_path)
+            ):
+                recorded = reread.get("files", {}).get(key, {}).get("sha256")
+                if not recorded or recorded != sha256_file(output):
+                    raise ValueError(f"Evidence verification failed for {key}")
+            if reread.get("original_url") != url or reread.get("final_url") != final_url:
+                raise ValueError("Evidence metadata verification failed")
+
             # The completed directory appears atomically. A failed capture is
             # never published as a folder containing partial evidence.
             os.rename(temporary, page_dir)
