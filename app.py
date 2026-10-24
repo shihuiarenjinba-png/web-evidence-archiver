@@ -76,10 +76,11 @@ class WebEvidenceArchiverApp(tk.Tk):
             "設定JSONが選択されていればJSONの設定を優先します。URLから取得する場合は入力URLの"
             "ホストだけを許可し、外部ホストの素材は取得しません。HTML・PNG・PDFとSHA256を保存します。"
         ), wraplength=760, justify="left").grid(row=8, column=0, columnspan=3, sticky="w", pady=(10, 6))
-        self.run_button = ttk.Button(body, text="保存を開始", command=self._run)
-        self.run_button.grid(row=9, column=0, columnspan=3, sticky="w", pady=(6, 6))
+        self.run_button = ttk.Button(body, text="証拠セットを保存", command=self._run)
+        self.run_button.grid(row=9, column=0, columnspan=3, sticky="w", pady=(6, 2))
+        ttk.Label(body, text="押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。", wraplength=760, justify="left").grid(row=10, column=0, columnspan=3, sticky="w", pady=(0, 6))
         self.progress = ttk.Progressbar(body, mode="indeterminate")
-        self.progress.grid(row=10, column=0, columnspan=3, sticky="ew")
+        self.progress.grid(row=12, column=0, columnspan=3, sticky="ew")
         ttk.Label(body, textvariable=self.status_var, wraplength=760, justify="left").grid(
             row=11, column=0, columnspan=3, sticky="w", pady=12
         )
