@@ -116,6 +116,7 @@ class WebEvidenceArchiverApp(tk.Tk):
         else:
             ready = bool(self.config_var.get().strip())
         ready = ready and not self._running
+        self.command_bar.set_enabled("output", selected == 0 and not self._running)
         self.command_bar.set_enabled("save", ready)
 
     def _pick_output(self) -> None:
