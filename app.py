@@ -17,8 +17,8 @@ class WebEvidenceArchiverApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Web Evidence Archiver")
-        self.geometry("810x455")
-        self.minsize(710, 400)
+        self.geometry("810x500")
+        self.minsize(710, 440)
         self.config_var = tk.StringVar()
         self.url_var = tk.StringVar(value="https://example.com/")
         self.output_var = tk.StringVar()
