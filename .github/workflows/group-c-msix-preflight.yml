@@ -60,7 +60,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: web-evidence-msix-candidate-${{ github.run_id }}
+          name: web-evidence-QA_UNSIGNED-msix-${{ github.run_id }}
           path: store-output/**
           if-no-files-found: error
           retention-days: 14
