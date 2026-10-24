@@ -27,6 +27,12 @@ _CONTROLLERS = []
 _PATCHED = False
 
 TEXTS = {
+    "1件を保存": ("Save one page", "1件を保存"),
+    "複数URL設定": ("Multiple URLs", "複数URL設定"),
+    "保存フォルダ": ("Output folder", "保存フォルダ"),
+    "このタブでは1ページだけ保存します。URLと保存先を選ぶと下の保存ボタンが使えるようになります。": ("This tab saves one page. Choose a URL and output folder to enable the save button below.", "このタブでは1ページだけ保存します。URLと保存先を選ぶと下の保存ボタンが使えるようになります。"),
+    "このタブでは設定JSONに書かれた複数URLを順番に保存します。設定ファイルを選ぶと保存できます。": ("This tab saves multiple URLs listed in a configuration JSON. Choose the configuration file to enable saving.", "このタブでは設定JSONに書かれた複数URLを順番に保存します。設定ファイルを選ぶと保存できます。"),
+    "設定JSONを選択してください。": ("Choose a configuration JSON.", "設定JSONを選択してください。"),
     "証拠セットを保存": ("Save evidence set", "証拠セットを保存"),
     "押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。": ("Captures the target page and saves HTML, PNG, PDF and SHA-256 together in one output folder.", "押すと対象ページを取得し、HTML・PNG・PDF・SHA-256を1つの保存先にまとめます。"),
     "Web Evidence Archiver": ("Web Evidence Archiver", "Web証拠アーカイバー"),
