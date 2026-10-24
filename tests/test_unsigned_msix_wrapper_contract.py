@@ -21,7 +21,7 @@ class UnsignedWrapperSourceContractTests(unittest.TestCase):
 
     def test_single_wrapper_body_not_duplicated(self):
         self.assertEqual(self.wrapper.count("[CmdletBinding()]"), 1)
-        self.assertEqual(self.wrapper.count("MSIX_CANDIDATE_CREATED"), 1)
+        self.assertEqual(self.wrapper.count("QA_UNSIGNED_MSIX_CREATED"), 1)
         self.assertEqual(self.wrapper.count("STORE_SUBMISSION=NOT_AUTHORIZED"), 1)
         self.assertEqual(self.wrapper.count("if ($Commit -notmatch"), 1)
 
@@ -47,6 +47,7 @@ class UnsignedWrapperSourceContractTests(unittest.TestCase):
         self.assertIn("Get-FileHash", text)
         self.assertNotIn("SignTool.exe", text)
         self.assertNotIn("New-SelfSignedCertificate", text)
+        self.assertIn("QA_UNSIGNED", text)
         self.assertNotIn("partner.microsoft.com/api", text)
 
     def test_conditional_workflow_does_not_build_on_hold(self):
