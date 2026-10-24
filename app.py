@@ -11,6 +11,7 @@ from tkinter import filedialog, messagebox, ttk
 from urllib.parse import urlparse
 
 from archiver import WebEvidenceArchiver, validate_url
+from ui_desktop import bind_shortcuts, restore_window_state, save_window_state
 
 
 class WebEvidenceArchiverApp(tk.Tk):
@@ -19,6 +20,7 @@ class WebEvidenceArchiverApp(tk.Tk):
         self.title("Web Evidence Archiver")
         self.geometry("810x500")
         self.minsize(710, 440)
+        restore_window_state(self, "WebEvidenceArchiver", min_width=710, min_height=440)
         self.config_var = tk.StringVar()
         self.url_var = tk.StringVar(value="https://example.com/")
         self.output_var = tk.StringVar()
@@ -28,6 +30,16 @@ class WebEvidenceArchiverApp(tk.Tk):
         self._build()
         self.after(150, self._poll)
         self.protocol("WM_DELETE_WINDOW", self._close)
+        self.config_var.trace_add("write", lambda *_: self._refresh_actions())
+        self.url_var.trace_add("write", lambda *_: self._refresh_actions())
+        self.output_var.trace_add("write", lambda *_: self._refresh_actions())
+        bind_shortcuts(self, {
+            "<Control-Return>": self._run,
+            "<F5>": self._run,
+            "<Control-O>": self._pick_config,
+            "<Control-Shift-S>": self._pick_output,
+        })
+        self._refresh_actions()
 
     def _build(self) -> None:
         body = ttk.Frame(self, padding=16)
@@ -72,6 +84,12 @@ class WebEvidenceArchiverApp(tk.Tk):
             row=11, column=0, columnspan=3, sticky="w", pady=12
         )
 
+    def _refresh_actions(self) -> None:
+        config_ready = bool(self.config_var.get().strip())
+        direct_ready = bool(self.url_var.get().strip() and self.output_var.get().strip())
+        ready = (config_ready or direct_ready) and not self._running
+        self.run_button.state(["!disabled"] if ready else ["disabled"])
+
     def _pick_output(self) -> None:
         folder = filedialog.askdirectory(title="保存先フォルダ")
         if folder:
@@ -100,7 +118,7 @@ class WebEvidenceArchiverApp(tk.Tk):
                 messagebox.showerror("URLエラー", str(exc))
                 return
         self._running = True
-        self.run_button.state(["disabled"])
+        self._refresh_actions()
         self.progress.start(15)
         self.status_var.set("Webページの保存中です。処理完了まで閉じないでください。")
 
@@ -129,7 +147,7 @@ class WebEvidenceArchiverApp(tk.Tk):
                 success, value, summary = self._events.get_nowait()
                 self._running = False
                 self.progress.stop()
-                self.run_button.state(["!disabled"])
+                self._refresh_actions()
                 if success:
                     message = (f"記録フォルダ: {Path(value).name} / 成功: {summary['captured']} / "
                                f"失敗: {summary['failed']} / 未試行: {summary['not_attempted']}。"
@@ -150,6 +168,7 @@ class WebEvidenceArchiverApp(tk.Tk):
         if self._running:
             messagebox.showwarning("処理中", "保存処理が完了するまで画面を閉じないでください。")
             return
+        save_window_state(self, "WebEvidenceArchiver")
         self.destroy()
 
 
