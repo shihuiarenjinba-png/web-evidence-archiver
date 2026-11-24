@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -66,13 +67,15 @@ def load_config(path: str | Path) -> dict:
 
 
 class WebEvidenceArchiver:
-    def __init__(self, config_path: str | Path):
+    def __init__(self, config_path: str | Path, *, progress=None, cancel_event: threading.Event | None = None):
         self.config = load_config(config_path)
         self.allow_hosts = list(self.config["allow_hosts"])
         self.urls = list(self.config["urls"])
         self.output_dir = Path(self.config.get("output_dir", "web_evidence")).expanduser().resolve()
         self.timeout_ms = int(self.config.get("timeout_seconds", 30)) * 1000
         self.viewport = self.config.get("viewport", {"width": 1440, "height": 1000})
+        self.progress = progress or (lambda _message: None)
+        self.cancel_event = cancel_event or threading.Event()
 
     def _route_guard(self, route: Route, request: Request) -> None:
         parsed = urlparse(request.url)
@@ -89,6 +92,7 @@ class WebEvidenceArchiver:
         route.continue_()
 
     def capture_all(self) -> Path:
+        self.progress("Preparing isolated output folder…")
         run_dir = _unique_run_dir(self.output_dir)
         manifest = {
             "created_at": datetime.now().astimezone().isoformat(),
@@ -97,6 +101,7 @@ class WebEvidenceArchiver:
         }
 
         with sync_playwright() as pw:
+            self.progress("Starting Chromium…")
             browser = pw.chromium.launch(headless=True)
             context = browser.new_context(
                 viewport={
@@ -109,6 +114,10 @@ class WebEvidenceArchiver:
 
             try:
                 for index, url in enumerate(self.urls, start=1):
+                    if self.cancel_event.is_set():
+                        manifest["cancelled"] = True
+                        break
+                    self.progress(f"Capturing {index}/{len(self.urls)}: {url}")
                     capture = self._capture_one(page, run_dir, index, url)
                     manifest["captures"].append(capture)
             finally:
@@ -117,6 +126,7 @@ class WebEvidenceArchiver:
 
         manifest_path = run_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.progress(f"Manifest saved: {manifest_path}")
         return run_dir
 
     def _capture_one(self, page, run_dir: Path, index: int, url: str) -> dict:
