@@ -35,7 +35,7 @@ class CaptureSummaryTests(unittest.TestCase):
             self.assertEqual(len(result["captures"]), 1)
             self.assertEqual(len(result["files"]), 3)
             self.assertFalse(result["cancelled"])
-            self.assertEqual(result["manifest_path"], str(root / "manifest.json"))
+            self.assertEqual(Path(result["manifest_path"]), (root / "manifest.json").resolve())
 
     def test_preserves_cancelled_state(self):
         with tempfile.TemporaryDirectory() as temporary:
