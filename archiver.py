@@ -66,6 +66,58 @@ def load_config(path: str | Path) -> dict:
     return config
 
 
+def load_capture_summary(output_dir: str | Path) -> dict:
+    """Load and validate the manifest used by the GUI completion dialog."""
+    root = Path(output_dir).expanduser().resolve()
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Capture manifest was not created: {manifest_path}")
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Capture manifest could not be read: {exc}") from exc
+
+    if not isinstance(manifest, dict):
+        raise ValueError("Capture manifest must contain a JSON object.")
+    captures = manifest.get("captures")
+    if not isinstance(captures, list):
+        raise ValueError("Capture manifest does not contain a valid captures list.")
+
+    artifact_paths: list[str] = []
+    for index, capture in enumerate(captures, start=1):
+        if not isinstance(capture, dict):
+            raise ValueError(f"Capture entry {index} is not an object.")
+        folder = capture.get("folder")
+        entries = capture.get("files")
+        if not isinstance(folder, str) or not folder.strip():
+            raise ValueError(f"Capture entry {index} has no valid folder.")
+        if not isinstance(entries, dict) or not entries:
+            raise ValueError(f"Capture entry {index} has no artifact list.")
+
+        for entry in entries.values():
+            if not isinstance(entry, dict):
+                raise ValueError(f"Capture entry {index} contains an invalid artifact record.")
+            relative_path = entry.get("path")
+            if not isinstance(relative_path, str) or not relative_path.strip():
+                raise ValueError(f"Capture entry {index} contains an invalid artifact path.")
+            artifact_path = (root / folder / relative_path).resolve()
+            try:
+                artifact_path.relative_to(root)
+            except ValueError as exc:
+                raise ValueError("Capture manifest contains a path outside the output folder.") from exc
+            if not artifact_path.is_file():
+                raise FileNotFoundError(f"Capture artifact is missing: {artifact_path}")
+            artifact_paths.append(str(artifact_path))
+
+    return {
+        "manifest_path": str(manifest_path),
+        "captures": captures,
+        "files": artifact_paths,
+        "cancelled": bool(manifest.get("cancelled", False)),
+    }
+
+
 class WebEvidenceArchiver:
     def __init__(self, config_path: str | Path, *, progress=None, cancel_event: threading.Event | None = None):
         self.config = load_config(config_path)
