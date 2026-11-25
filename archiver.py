@@ -95,7 +95,11 @@ def load_capture_summary(output_dir: str | Path) -> dict:
         if not isinstance(entries, dict) or not entries:
             raise ValueError(f"Capture entry {index} has no artifact list.")
 
-        for entry in entries.values():
+        expected_keys = {"html", "screenshot", "pdf"}
+        missing_keys = expected_keys - entries.keys()
+        if missing_keys:
+            raise ValueError(f"Capture entry {index} is missing artifacts: {', '.join(sorted(missing_keys))}")
+        for kind, entry in entries.items():
             if not isinstance(entry, dict):
                 raise ValueError(f"Capture entry {index} contains an invalid artifact record.")
             relative_path = entry.get("path")
@@ -108,7 +112,33 @@ def load_capture_summary(output_dir: str | Path) -> dict:
                 raise ValueError("Capture manifest contains a path outside the output folder.") from exc
             if not artifact_path.is_file():
                 raise FileNotFoundError(f"Capture artifact is missing: {artifact_path}")
+            if artifact_path.stat().st_size <= 0:
+                raise ValueError(f"Capture artifact is empty: {artifact_path}")
+            expected_sha = entry.get("sha256")
+            if not isinstance(expected_sha, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_sha):
+                raise ValueError(f"Capture artifact has no valid SHA-256 in manifest: {artifact_path}")
+            actual_sha = sha256_file(artifact_path)
+            if actual_sha.casefold() != expected_sha.casefold():
+                raise ValueError(f"Capture artifact SHA-256 mismatch: {artifact_path}")
+            expected_suffix = {"html": ".html", "screenshot": ".png", "pdf": ".pdf"}.get(kind)
+            if expected_suffix and artifact_path.suffix.lower() != expected_suffix:
+                raise ValueError(f"Capture artifact type mismatch for {kind}: {artifact_path}")
             artifact_paths.append(str(artifact_path))
+
+        metadata_path = (root / folder / "metadata.json").resolve()
+        try:
+            metadata_path.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("Capture metadata path is outside the output folder.") from exc
+        if not metadata_path.is_file() or metadata_path.stat().st_size <= 0:
+            raise FileNotFoundError(f"Capture metadata is missing or empty: {metadata_path}")
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Capture metadata is invalid: {metadata_path}: {exc}") from exc
+        if not isinstance(metadata, dict):
+            raise ValueError(f"Capture metadata must contain a JSON object: {metadata_path}")
+        artifact_paths.append(str(metadata_path))
 
     return {
         "manifest_path": str(manifest_path),
@@ -120,10 +150,14 @@ def load_capture_summary(output_dir: str | Path) -> dict:
 
 class WebEvidenceArchiver:
     def __init__(self, config_path: str | Path, *, progress=None, cancel_event: threading.Event | None = None):
-        self.config = load_config(config_path)
+        self.config_path = Path(config_path).expanduser().resolve()
+        self.config = load_config(self.config_path)
         self.allow_hosts = list(self.config["allow_hosts"])
         self.urls = list(self.config["urls"])
-        self.output_dir = Path(self.config.get("output_dir", "web_evidence")).expanduser().resolve()
+        configured_output = Path(self.config.get("output_dir", "web_evidence")).expanduser()
+        if not configured_output.is_absolute():
+            configured_output = self.config_path.parent / configured_output
+        self.output_dir = configured_output.resolve()
         self.timeout_ms = int(self.config.get("timeout_seconds", 30)) * 1000
         self.viewport = self.config.get("viewport", {"width": 1440, "height": 1000})
         self.progress = progress or (lambda _message: None)
