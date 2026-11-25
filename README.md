@@ -23,6 +23,32 @@
 
 ## セットアップ
 
+PowerShellから以下を実行してください。スクリプトは現在の作業フォルダーではなく、自身の配置場所からリポジトリを特定します。Python 3.13を優先し、3.12を次に使用します。3.14は既定で使いません。
+
+```powershell
+& "<Web Evidence Archiverの場所>\setup.ps1"
+& "<Web Evidence Archiverの場所>\doctor.ps1"
+& "<Web Evidence Archiverの場所>\run.ps1"
+```
+
+Python 3.13 / 3.12がない場合は、3.14を自動的に製品対応扱いにせず、全テストとChromium起動検証を行う明示的な試行だけを許可します。
+
+```powershell
+& "<Web Evidence Archiverの場所>\setup.ps1" -AllowExperimentalPython314
+```
+
+`setup.ps1`はリポジトリ内の`.venv`と`.pw-browsers`にだけ依存関係・Chromiumを導入し、unittest・compile・Chromium headless起動を確認します。既存の`.venv`が不適合なら削除・上書きせず停止します。`doctor.ps1`は状態を診断し、`run.ps1 -CheckOnly`はどの作業フォルダーから呼んでもパス解決を確認できます。
+
+確認済みのJSON設定を起動時に読み込む場合は、`run.ps1 -ConfigPath .\config.json`または`python app.py --config .\config.json`を指定できます。省略した場合は画面から選択します。
+
+例として、PowerShellの現在地が`C:\Users\aaron\Desktop\Windows-Automator`でも、リポジトリの保存場所にあるスクリプトの完全パスから起動します。
+
+```powershell
+& "<Web Evidence Archiverの保存場所>\run.ps1"
+```
+
+手動でvenvを作る場合の参考手順:
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate

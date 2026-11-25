@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -65,14 +66,102 @@ def load_config(path: str | Path) -> dict:
     return config
 
 
+def load_capture_summary(output_dir: str | Path) -> dict:
+    """Load and validate the manifest used by the GUI completion dialog."""
+    root = Path(output_dir).expanduser().resolve()
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Capture manifest was not created: {manifest_path}")
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Capture manifest could not be read: {exc}") from exc
+
+    if not isinstance(manifest, dict):
+        raise ValueError("Capture manifest must contain a JSON object.")
+    captures = manifest.get("captures")
+    if not isinstance(captures, list):
+        raise ValueError("Capture manifest does not contain a valid captures list.")
+
+    artifact_paths: list[str] = []
+    for index, capture in enumerate(captures, start=1):
+        if not isinstance(capture, dict):
+            raise ValueError(f"Capture entry {index} is not an object.")
+        folder = capture.get("folder")
+        entries = capture.get("files")
+        if not isinstance(folder, str) or not folder.strip():
+            raise ValueError(f"Capture entry {index} has no valid folder.")
+        if not isinstance(entries, dict) or not entries:
+            raise ValueError(f"Capture entry {index} has no artifact list.")
+
+        expected_keys = {"html", "screenshot", "pdf"}
+        missing_keys = expected_keys - entries.keys()
+        if missing_keys:
+            raise ValueError(f"Capture entry {index} is missing artifacts: {', '.join(sorted(missing_keys))}")
+        for kind, entry in entries.items():
+            if not isinstance(entry, dict):
+                raise ValueError(f"Capture entry {index} contains an invalid artifact record.")
+            relative_path = entry.get("path")
+            if not isinstance(relative_path, str) or not relative_path.strip():
+                raise ValueError(f"Capture entry {index} contains an invalid artifact path.")
+            artifact_path = (root / folder / relative_path).resolve()
+            try:
+                artifact_path.relative_to(root)
+            except ValueError as exc:
+                raise ValueError("Capture manifest contains a path outside the output folder.") from exc
+            if not artifact_path.is_file():
+                raise FileNotFoundError(f"Capture artifact is missing: {artifact_path}")
+            if artifact_path.stat().st_size <= 0:
+                raise ValueError(f"Capture artifact is empty: {artifact_path}")
+            expected_sha = entry.get("sha256")
+            if not isinstance(expected_sha, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_sha):
+                raise ValueError(f"Capture artifact has no valid SHA-256 in manifest: {artifact_path}")
+            actual_sha = sha256_file(artifact_path)
+            if actual_sha.casefold() != expected_sha.casefold():
+                raise ValueError(f"Capture artifact SHA-256 mismatch: {artifact_path}")
+            expected_suffix = {"html": ".html", "screenshot": ".png", "pdf": ".pdf"}.get(kind)
+            if expected_suffix and artifact_path.suffix.lower() != expected_suffix:
+                raise ValueError(f"Capture artifact type mismatch for {kind}: {artifact_path}")
+            artifact_paths.append(str(artifact_path))
+
+        metadata_path = (root / folder / "metadata.json").resolve()
+        try:
+            metadata_path.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("Capture metadata path is outside the output folder.") from exc
+        if not metadata_path.is_file() or metadata_path.stat().st_size <= 0:
+            raise FileNotFoundError(f"Capture metadata is missing or empty: {metadata_path}")
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Capture metadata is invalid: {metadata_path}: {exc}") from exc
+        if not isinstance(metadata, dict):
+            raise ValueError(f"Capture metadata must contain a JSON object: {metadata_path}")
+        artifact_paths.append(str(metadata_path))
+
+    return {
+        "manifest_path": str(manifest_path),
+        "captures": captures,
+        "files": artifact_paths,
+        "cancelled": bool(manifest.get("cancelled", False)),
+    }
+
+
 class WebEvidenceArchiver:
-    def __init__(self, config_path: str | Path):
-        self.config = load_config(config_path)
+    def __init__(self, config_path: str | Path, *, progress=None, cancel_event: threading.Event | None = None):
+        self.config_path = Path(config_path).expanduser().resolve()
+        self.config = load_config(self.config_path)
         self.allow_hosts = list(self.config["allow_hosts"])
         self.urls = list(self.config["urls"])
-        self.output_dir = Path(self.config.get("output_dir", "web_evidence")).expanduser().resolve()
+        configured_output = Path(self.config.get("output_dir", "web_evidence")).expanduser()
+        if not configured_output.is_absolute():
+            configured_output = self.config_path.parent / configured_output
+        self.output_dir = configured_output.resolve()
         self.timeout_ms = int(self.config.get("timeout_seconds", 30)) * 1000
         self.viewport = self.config.get("viewport", {"width": 1440, "height": 1000})
+        self.progress = progress or (lambda _message: None)
+        self.cancel_event = cancel_event or threading.Event()
 
     def _route_guard(self, route: Route, request: Request) -> None:
         parsed = urlparse(request.url)
@@ -89,6 +178,7 @@ class WebEvidenceArchiver:
         route.continue_()
 
     def capture_all(self) -> Path:
+        self.progress("Preparing isolated output folder…")
         run_dir = _unique_run_dir(self.output_dir)
         manifest = {
             "created_at": datetime.now().astimezone().isoformat(),
@@ -97,6 +187,7 @@ class WebEvidenceArchiver:
         }
 
         with sync_playwright() as pw:
+            self.progress("Starting Chromium…")
             browser = pw.chromium.launch(headless=True)
             context = browser.new_context(
                 viewport={
@@ -109,6 +200,10 @@ class WebEvidenceArchiver:
 
             try:
                 for index, url in enumerate(self.urls, start=1):
+                    if self.cancel_event.is_set():
+                        manifest["cancelled"] = True
+                        break
+                    self.progress(f"Capturing {index}/{len(self.urls)}: {url}")
                     capture = self._capture_one(page, run_dir, index, url)
                     manifest["captures"].append(capture)
             finally:
@@ -117,6 +212,7 @@ class WebEvidenceArchiver:
 
         manifest_path = run_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.progress(f"Manifest saved: {manifest_path}")
         return run_dir
 
     def _capture_one(self, page, run_dir: Path, index: int, url: str) -> dict:
